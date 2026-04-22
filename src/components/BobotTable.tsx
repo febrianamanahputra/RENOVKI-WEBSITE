@@ -42,8 +42,12 @@ export default function BobotTable({ onBack, pekan, locationId }: BobotTableProp
     const infoboxes = tbody.querySelectorAll('tr:not([data-id]) input');
     const infoboxValues = Array.from(infoboxes).map(inp => (inp as HTMLInputElement).value);
 
-    // Sync to Firestore instead of localStorage
-    setDoc(doc(db, "bobot_data", `${locationId}_${pekan}`), { rows: currentRows, values, infoboxValues }, { merge: true }).catch(console.error);
+    // Sync to Firestore instead of localStorage if available, otherwise fallback
+    if (db && !!import.meta.env.VITE_FIREBASE_API_KEY) {
+      setDoc(doc(db, "bobot_data", `${locationId}_${pekan}`), { rows: currentRows, values, infoboxValues }, { merge: true }).catch(console.error);
+    } else {
+      localStorage.setItem(`bobot_data_global_${locationId}_${pekan}`, JSON.stringify({ rows: currentRows, values, infoboxValues }));
+    }
   }, [locationId, pekan]); // depends on location and pekan
 
   useEffect(() => {
@@ -57,7 +61,47 @@ export default function BobotTable({ onBack, pekan, locationId }: BobotTableProp
   }, [rows, saveState]);
 
   useEffect(() => {
-    if (!db) return;
+    if (!db || !import.meta.env.VITE_FIREBASE_API_KEY) {
+      const saved = localStorage.getItem(`bobot_data_global_${locationId}_${pekan}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.rows && parsed.rows.length) {
+            setRows(prev => parsed.rows.length !== prev.length ? parsed.rows : prev);
+          }
+          setTimeout(() => {
+            if (parsed.values) {
+              Object.keys(parsed.values).forEach(id => {
+                const tr = document.querySelector(`tr[data-id="${id}"]`);
+                if (tr) {
+                  const inputs = tr.querySelectorAll('input');
+                  parsed.values[id].forEach((val: string, idx: number) => {
+                    const inp = inputs[idx] as HTMLInputElement;
+                    if (inp && inp.value !== val && document.activeElement !== inp) {
+                      inp.value = val;
+                    }
+                  });
+                }
+              });
+            }
+            if (parsed.infoboxValues) {
+              const tbody = document.querySelector('tbody');
+              if (tbody) {
+                 const infoboxes = tbody.querySelectorAll('tr:not([data-id]) input');
+                 parsed.infoboxValues.forEach((val: string, idx: number) => {
+                   const inp = infoboxes[idx] as HTMLInputElement;
+                   if (inp && inp.value !== val && document.activeElement !== inp) {
+                      inp.value = val;
+                   }
+                 });
+              }
+            }
+            calculateSubtotals();
+          }, 50);
+        } catch(e) {}
+      }
+      return;
+    }
     const unsub = onSnapshot(doc(db, "bobot_data", `${locationId}_${pekan}`), (saved) => {
       if (saved.exists()) {
         try {

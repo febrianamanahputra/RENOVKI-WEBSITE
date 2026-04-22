@@ -75,7 +75,17 @@ export default function App() {
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
 
+  // Instead of completely blocking if Firebase isn't configured,
+  // we just let them into the dashboard directly with a faked user
+  // so the rest of the application can run in local mode.
   useEffect(() => {
+    const isFirebaseConfigured = !!import.meta.env.VITE_FIREBASE_API_KEY;
+    if (!isFirebaseConfigured) {
+       setUser({ displayName: "Local User" });
+       setLoadingAuth(false);
+       return;
+    }
+
     const unsubscribe = onAuthStateChanged(async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
@@ -94,7 +104,9 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      await logOut();
+      if (!!import.meta.env.VITE_FIREBASE_API_KEY) {
+         await logOut();
+      }
       // Will auto-reconnect via the listener above
     } catch (err) {
       console.error(err);
@@ -106,7 +118,17 @@ export default function App() {
 
   // Real-time listener for global app state (locations and active selection)
   useEffect(() => {
-    if (!db) return;
+    if (!db || !import.meta.env.VITE_FIREBASE_API_KEY) {
+      const saved = localStorage.getItem('renovki_app_global');
+      if (saved) {
+         try {
+           const parsed = JSON.parse(saved);
+           if (parsed.locations) setLocations(parsed.locations);
+           if (parsed.activeLocationId) setActiveLocationId(parsed.activeLocationId);
+         } catch(e){}
+      }
+      return;
+    }
     const unsub = onSnapshot(doc(db, "renovki_app", "global"), (snap) => {
       if (snap.exists()) {
         const data = snap.data();
@@ -128,7 +150,11 @@ export default function App() {
       setActiveLocationId(newLoc.id);
       
       // Sync to Firestore
-      if (db) await setDoc(doc(db, "renovki_app", "global"), { locations: newLocations, activeLocationId: newLoc.id }, { merge: true });
+      if (db && !!import.meta.env.VITE_FIREBASE_API_KEY) {
+         await setDoc(doc(db, "renovki_app", "global"), { locations: newLocations, activeLocationId: newLoc.id }, { merge: true });
+      } else {
+         localStorage.setItem('renovki_app_global', JSON.stringify({ locations: newLocations, activeLocationId: newLoc.id }));
+      }
     }
   };
 
@@ -138,7 +164,12 @@ export default function App() {
        handleAddLocation();
     } else {
        setActiveLocationId(val);
-       if (db) await setDoc(doc(db, "renovki_app", "global"), { activeLocationId: val }, { merge: true });
+       if (db && !!import.meta.env.VITE_FIREBASE_API_KEY) {
+          await setDoc(doc(db, "renovki_app", "global"), { activeLocationId: val }, { merge: true });
+       } else {
+          const locs = locations;
+          localStorage.setItem('renovki_app_global', JSON.stringify({ locations: locs, activeLocationId: val }));
+       }
     }
   };
 
@@ -148,7 +179,19 @@ export default function App() {
 
   // Sync Location Specific Meta (Pekan, Start Date, Pekan List) to Firestore
   useEffect(() => {
-    if (!db || !activeLocationId) return;
+    if (!activeLocationId) return;
+    if (!db || !import.meta.env.VITE_FIREBASE_API_KEY) {
+      const saved = localStorage.getItem(`renovki_location_meta_${activeLocationId}`);
+      if (saved) {
+         try {
+           const parsed = JSON.parse(saved);
+           if (parsed.pekan) setPekan(parsed.pekan);
+           if (parsed.baseStartDate !== undefined) setBaseStartDate(parsed.baseStartDate);
+           if (parsed.pekanList) setPekanList(parsed.pekanList);
+         } catch(e){}
+      }
+      return;
+    }
     const unsub = onSnapshot(doc(db, "renovki_location_meta", activeLocationId), (snap) => {
       if (snap.exists()) {
         const data = snap.data();
@@ -161,8 +204,15 @@ export default function App() {
   }, [activeLocationId]);
 
   const updateLocationMeta = async (updates: any) => {
-    if (db && activeLocationId) {
+    if (db && activeLocationId && !!import.meta.env.VITE_FIREBASE_API_KEY) {
       await setDoc(doc(db, "renovki_location_meta", activeLocationId), updates, { merge: true });
+    } else {
+      const saved = localStorage.getItem(`renovki_location_meta_${activeLocationId}`);
+      let parsed = { pekan, baseStartDate, pekanList };
+      if (saved) {
+         try { parsed = { ...parsed, ...JSON.parse(saved) }; } catch(e){}
+      }
+      localStorage.setItem(`renovki_location_meta_${activeLocationId}`, JSON.stringify({ ...parsed, ...updates }));
     }
   };
 
@@ -210,34 +260,6 @@ export default function App() {
        <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">
           Loading...
        </div>
-    );
-  }
-
-  const isFirebaseConfigured = !!import.meta.env.VITE_FIREBASE_API_KEY;
-
-  if (!isFirebaseConfigured) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-        <div className="bg-white/10 backdrop-blur-xl border border-red-500/50 p-8 rounded-3xl max-w-2xl w-full text-white shadow-2xl">
-          <h2 className="text-2xl font-bold text-red-400 mb-4 flex items-center gap-2">
-            ⚠️ Firebase Configuration Missing
-          </h2>
-          <p className="mb-4 text-white/80">
-            Aplikasi ini membutuhkan Firebase untuk Autentikasi dan Database. Untuk mendeploy ke Vercel atau menjalankannya lokal, Anda harus mengisi environment variables berikut di <code className="bg-black/30 px-1 py-0.5 rounded">.env</code> atau dashboard Vercel.
-          </p>
-          <ul className="list-disc pl-5 mb-6 space-y-2 font-mono text-sm text-white/90 bg-black/20 p-4 rounded-xl">
-            <li>VITE_FIREBASE_API_KEY</li>
-            <li>VITE_FIREBASE_AUTH_DOMAIN</li>
-            <li>VITE_FIREBASE_PROJECT_ID</li>
-            <li>VITE_FIREBASE_STORAGE_BUCKET</li>
-            <li>VITE_FIREBASE_MESSAGING_SENDER_ID</li>
-            <li>VITE_FIREBASE_APP_ID</li>
-          </ul>
-          <p className="text-sm text-white/60">
-            Pastikan Anda menggunakan Firestore dan metode SignInWithPopup Google (aktifkan provider Google Auth di console Firebase).
-          </p>
-        </div>
-      </div>
     );
   }
 
@@ -311,8 +333,8 @@ export default function App() {
              <div className="text-left hidden sm:block">
                 <p className="text-white font-bold text-sm leading-tight drop-shadow-md">Anonim User</p>
                 <div className="flex items-center gap-1.5 text-emerald-400/80 text-[11px] uppercase tracking-wider font-semibold">
-                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse block"></span>
-                   Real-time Sync
+                   <span className={`w-1.5 h-1.5 rounded-full block ${!!import.meta.env.VITE_FIREBASE_API_KEY ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`}></span>
+                   {!!import.meta.env.VITE_FIREBASE_API_KEY ? 'Real-time Sync' : 'Local Mode'}
                 </div>
              </div>
           </div>
