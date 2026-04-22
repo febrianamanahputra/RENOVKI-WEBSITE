@@ -72,6 +72,28 @@ const INITIAL_LOCATION = { id: 'loc-1', name: 'Proyek Utama', workspaceId: 'glob
 
 export default function App() {
   const [user, loading] = useAuthState(auth);
+  const [loginError, setLoginError] = useState<string>('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  const handleLogin = async () => {
+    try {
+      setLoginError('');
+      setIsLoggingIn(true);
+      await signInWithGoogle();
+    } catch (err: any) {
+      console.error("Firebase Login Error:", err);
+      // Format proper error message for the user
+      if (err.message?.includes('auth/unauthorized-domain')) {
+        setLoginError('Domain ini belum diotorisasi. Tambahkan URL aplikasi ini ke Authorized Domains di Firebase Console (Authentication -> Settings).');
+      } else if (err.message?.includes('popup-closed-by-user')) {
+        setLoginError('Login dibatalkan (Popup ditutup).');
+      } else {
+        setLoginError(`Gagal login: ${err.message}`);
+      }
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
   
   if (loading) {
     return <div className="min-h-screen bg-slate-900 flex items-center justify-center"><Loader2 className="w-10 h-10 text-white animate-spin" /></div>;
@@ -82,13 +104,26 @@ export default function App() {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 to-indigo-900 flex flex-col items-center justify-center font-['Helvetica_Neue',Arial,sans-serif] p-4 text-center">
         <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter mb-4 drop-shadow-lg">RENOVKI DASHBOARD</h1>
         <p className="text-white/80 mb-8 max-w-md">Sistem Laporan Konstruksi Real-Time<br/>Masuk untuk mengakses dan menyinkronkan data proyek Anda.</p>
+        
         <button 
-          onClick={signInWithGoogle}
-          className="flex items-center gap-3 bg-white text-slate-800 px-6 py-3 rounded-xl shadow-xl font-bold hover:-translate-y-1 hover:shadow-2xl transition-all"
+          onClick={handleLogin}
+          disabled={isLoggingIn}
+          className="flex items-center gap-3 bg-white text-slate-800 px-6 py-3 rounded-xl shadow-xl font-bold hover:-translate-y-1 hover:shadow-2xl transition-all disabled:opacity-70 disabled:hover:-translate-y-0"
         >
-          <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-          Masuk dengan Google
+          {isLoggingIn ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
+          )}
+          {isLoggingIn ? 'Memproses...' : 'Masuk dengan Google'}
         </button>
+
+        {loginError && (
+          <div className="mt-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg max-w-md text-red-200 text-sm text-left backdrop-blur-md">
+            <span className="font-bold flex items-center gap-2 mb-1">⚠️ Error Authentication</span>
+            <p>{loginError}</p>
+          </div>
+        )}
       </div>
     );
   }
