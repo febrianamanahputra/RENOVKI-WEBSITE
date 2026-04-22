@@ -4,10 +4,6 @@ import BobotTable from './components/BobotTable';
 import TimeSchedule from './components/TimeSchedule';
 import ReportHeader from './components/ReportHeader';
 import Sampul from './components/Sampul';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import { useCollectionData } from 'react-firebase-hooks/firestore';
-import { auth, db, signInWithGoogle, logout, handleFirestoreError } from './firebase';
-import { collection, doc, setDoc, query, where, serverTimestamp } from 'firebase/firestore';
 import { 
   BookOpen, 
   CalendarDays, 
@@ -18,9 +14,7 @@ import {
   Camera,
   MapPin,
   ChevronDown,
-  Plus,
-  LogOut,
-  Loader2
+  Plus
 } from 'lucide-react';
 
 const menus = [
@@ -68,129 +62,30 @@ const menus = [
   },
 ];
 
-const INITIAL_LOCATION = { id: 'loc-1', name: 'Proyek Utama', workspaceId: 'global', pekanAktif: '1', startDate: '', pekanList: Array.from({length: 26}, (_, i) => i + 1) };
-
 export default function App() {
-  const [user, loading] = useAuthState(auth);
-  const [loginError, setLoginError] = useState<string>('');
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-
-  const handleLogin = async () => {
-    try {
-      setLoginError('');
-      setIsLoggingIn(true);
-      await signInWithGoogle();
-    } catch (err: any) {
-      console.error("Firebase Login Error:", err);
-      // Format proper error message for the user
-      if (err.message?.includes('auth/unauthorized-domain')) {
-        setLoginError('Domain ini belum diotorisasi. Tambahkan URL aplikasi ini ke Authorized Domains di Firebase Console (Authentication -> Settings).');
-      } else if (err.message?.includes('popup-closed-by-user')) {
-        setLoginError('Login dibatalkan (Popup ditutup).');
-      } else {
-        setLoginError(`Gagal login: ${err.message}`);
-      }
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
-  
-  if (loading) {
-    return <div className="min-h-screen bg-slate-900 flex items-center justify-center"><Loader2 className="w-10 h-10 text-white animate-spin" /></div>;
-  }
-  
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-indigo-900 flex flex-col items-center justify-center font-['Helvetica_Neue',Arial,sans-serif] p-4 text-center">
-        <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter mb-4 drop-shadow-lg">RENOVKI DASHBOARD</h1>
-        <p className="text-white/80 mb-8 max-w-md">Sistem Laporan Konstruksi Real-Time<br/>Masuk untuk mengakses dan menyinkronkan data proyek Anda.</p>
-        
-        <button 
-          onClick={handleLogin}
-          disabled={isLoggingIn}
-          className="flex items-center gap-3 bg-white text-slate-800 px-6 py-3 rounded-xl shadow-xl font-bold hover:-translate-y-1 hover:shadow-2xl transition-all disabled:opacity-70 disabled:hover:-translate-y-0"
-        >
-          {isLoggingIn ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
-          ) : (
-            <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-          )}
-          {isLoggingIn ? 'Memproses...' : 'Masuk dengan Google'}
-        </button>
-
-        {loginError && (
-          <div className="mt-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg max-w-md text-red-200 text-sm text-left backdrop-blur-md">
-            <span className="font-bold flex items-center gap-2 mb-1">⚠️ Error Authentication</span>
-            <p>{loginError}</p>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return <Dashboard user={user} />;
-}
-
-function Dashboard({ user }: { user: any }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [activeView, setActiveView] = useState<'dashboard' | 'bobot' | 'timeschedule' | 'sampul'>('dashboard');
 
-  const locationsRef = collection(db, 'locations');
-  const qLocations = query(locationsRef, where('workspaceId', '==', 'global'));
+  const [locations, setLocations] = useState<{id: string, name: string}[]>(() => {
+    const saved = localStorage.getItem('renovki_locations');
+    return saved ? JSON.parse(saved) : [{ id: '1', name: 'Proyek Utama' }];
+  });
   
-  // Real-time locations listener
-  const [locationsData, loadingLocations, errorLocations] = useCollectionData(qLocations);
-  // inject id manually since idField is deprecated
-  const locations = locationsData && locationsData.length > 0 ? locationsData as any[] : [INITIAL_LOCATION];
-
   const [activeLocationId, setActiveLocationId] = useState(() => {
-    return localStorage.getItem('renovki_active_location') || 'loc-1';
+    return localStorage.getItem('renovki_active_location') || '1';
   });
 
-  // Keep location sync with storage
-  useEffect(() => {
-      if(activeLocationId) {
-          localStorage.setItem('renovki_active_location', activeLocationId);
-      }
-  }, [activeLocationId]);
-
   const activeLocation = locations.find(l => l.id === activeLocationId) || locations[0];
-  const pekan = activeLocation?.pekanAktif || '1';
-  const baseStartDate = activeLocation?.startDate || '';
-  const pekanList = activeLocation?.pekanList || Array.from({length: 26}, (_, i) => i + 1);
 
-  // Initial dummy doc push if empty
-  useEffect(() => {
-     if (!loadingLocations && locationsData?.length === 0) {
-        const { id, ...locData } = INITIAL_LOCATION;
-        setDoc(doc(db, 'locations', 'loc-1'), {
-            ...locData,
-            createdBy: user.uid,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-        }).catch(e => handleFirestoreError(e, 'create', 'locations/loc-1'));
-     }
-  }, [loadingLocations, locationsData, user]);
-
-  const handleAddLocation = async () => {
+  const handleAddLocation = () => {
     const name = window.prompt("Nama Lokasi Baru:");
     if (name?.trim()) {
-      const newLocId = `loc-${Date.now()}`;
-      try {
-          await setDoc(doc(db, 'locations', newLocId), {
-              name: name.trim(),
-              workspaceId: 'global',
-              pekanAktif: '1',
-              startDate: '',
-              pekanList: Array.from({length: 26}, (_, i) => i + 1),
-              createdBy: user.uid,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp()
-          });
-          setActiveLocationId(newLocId);
-      } catch (e) {
-          handleFirestoreError(e, 'create', `locations/${newLocId}`);
-      }
+      const newLoc = { id: Date.now().toString(), name: name.trim() };
+      const newLocations = [...locations, newLoc];
+      setLocations(newLocations);
+      setActiveLocationId(newLoc.id);
+      localStorage.setItem('renovki_locations', JSON.stringify(newLocations));
+      localStorage.setItem('renovki_active_location', newLoc.id);
     }
   };
 
@@ -200,26 +95,36 @@ function Dashboard({ user }: { user: any }) {
        handleAddLocation();
     } else {
        setActiveLocationId(val);
+       localStorage.setItem('renovki_active_location', val);
     }
   };
 
-  const updateLocationField = async (field: string, value: any) => {
-     if(!activeLocation.id) return;
-     try {
-         await setDoc(doc(db, 'locations', activeLocation.id), {
-             [field]: value,
-             updatedAt: serverTimestamp()
-         }, { merge: true });
-     } catch (e) {
-         handleFirestoreError(e, 'update', `locations/${activeLocation.id}`);
-     }
-  };
+  // The below state must be tied to the current location ideally, but for now we prefix them.
+  const [pekan, setPekan] = useState(localStorage.getItem(`global_pekan_${activeLocationId}`) || '1');
+  const [baseStartDate, setBaseStartDate] = useState(localStorage.getItem(`global_base_start_date_${activeLocationId}`) || '');
+  
+  // Update state when location changes
+  useEffect(() => {
+    setPekan(localStorage.getItem(`global_pekan_${activeLocationId}`) || '1');
+    setBaseStartDate(localStorage.getItem(`global_base_start_date_${activeLocationId}`) || '');
+  }, [activeLocationId]);
+
+  const [pekanList, setPekanList] = useState<number[]>(() => {
+    const saved = localStorage.getItem(`renovki_pekan_list_${activeLocationId}`);
+    return saved ? JSON.parse(saved) : Array.from({length: 26}, (_, i) => i + 1);
+  });
+
+  useEffect(() => {
+     const saved = localStorage.getItem(`renovki_pekan_list_${activeLocationId}`);
+     setPekanList(saved ? JSON.parse(saved) : Array.from({length: 26}, (_, i) => i + 1));
+  }, [activeLocationId]);
 
   const handleAddPekan = () => {
      const next = (pekanList[pekanList.length - 1] || 0) + 1;
      const newList = [...pekanList, next];
-     updateLocationField('pekanList', newList);
-     updateLocationField('pekanAktif', String(next));
+     setPekanList(newList);
+     setPekan(String(next));
+     localStorage.setItem(`renovki_pekan_list_${activeLocationId}`, JSON.stringify(newList));
   };
 
   const computedStartDate = React.useMemo(() => {
@@ -234,7 +139,7 @@ function Dashboard({ user }: { user: any }) {
 
   const handleSetStartDate = (val: string) => {
     if (!val) {
-      updateLocationField('startDate', '');
+      setBaseStartDate('');
       return;
     }
     const d = new Date(val);
@@ -242,15 +147,25 @@ function Dashboard({ user }: { user: any }) {
     if (!isNaN(pekanNum) && pekanNum > 0) {
       d.setDate(d.getDate() - (pekanNum - 1) * 7);
     }
-    updateLocationField('startDate', d.toISOString().split('T')[0]);
+    setBaseStartDate(d.toISOString().split('T')[0]);
   };
 
-  const setPekanSync = (val: string) => updateLocationField('pekanAktif', val);
+  useEffect(() => {
+    localStorage.setItem(`global_pekan_${activeLocationId}`, pekan);
+  }, [pekan, activeLocationId]);
+
+  useEffect(() => {
+    if (baseStartDate) {
+      localStorage.setItem(`global_base_start_date_${activeLocationId}`, baseStartDate);
+    } else {
+      localStorage.removeItem(`global_base_start_date_${activeLocationId}`);
+    }
+  }, [baseStartDate, activeLocationId]);
 
   if (activeView === 'bobot') {
     return (
       <div className="flex flex-col min-h-screen bg-[#f0f2f5]">
-        <ReportHeader pekan={pekan} setPekan={setPekanSync} startDate={computedStartDate} setStartDate={handleSetStartDate} />
+        <ReportHeader pekan={pekan} setPekan={setPekan} startDate={computedStartDate} setStartDate={handleSetStartDate} />
         <BobotTable key={`bobot-${activeLocationId}`} pekan={pekan} locationId={activeLocationId} onBack={() => setActiveView('dashboard')} />
       </div>
     );
@@ -259,7 +174,7 @@ function Dashboard({ user }: { user: any }) {
   if (activeView === 'timeschedule') {
     return (
       <div className="flex flex-col min-h-screen bg-[#f0f2f5]">
-        <ReportHeader pekan={pekan} setPekan={setPekanSync} startDate={computedStartDate} setStartDate={handleSetStartDate} />
+        <ReportHeader pekan={pekan} setPekan={setPekan} startDate={computedStartDate} setStartDate={handleSetStartDate} />
         <TimeSchedule key={`ts-${activeLocationId}`} pekan={pekan} locationId={activeLocationId} onBack={() => setActiveView('dashboard')} />
       </div>
     );
@@ -268,7 +183,7 @@ function Dashboard({ user }: { user: any }) {
   if (activeView === 'sampul') {
     return (
       <div className="flex flex-col min-h-screen bg-[#f0f2f5]">
-        <ReportHeader pekan={pekan} setPekan={setPekanSync} startDate={computedStartDate} setStartDate={handleSetStartDate} />
+        <ReportHeader pekan={pekan} setPekan={setPekan} startDate={computedStartDate} setStartDate={handleSetStartDate} />
         <Sampul key={`sampul-${activeLocationId}`} pekan={pekan} startDate={computedStartDate} locationId={activeLocationId} onBack={() => setActiveView('dashboard')} />
       </div>
     );
@@ -321,7 +236,7 @@ function Dashboard({ user }: { user: any }) {
                  <div className="relative inline-flex items-center shadow-lg rounded-xl overflow-hidden backdrop-blur-md border border-white/30 bg-black/20">
                     <select 
                         value={pekan}
-                        onChange={(e) => setPekanSync(e.target.value)}
+                        onChange={(e) => setPekan(e.target.value)}
                         className="appearance-none bg-transparent text-white text-[28px] md:text-[36px] font-[800] pl-6 pr-12 py-1 focus:outline-none cursor-pointer text-center min-w-[100px]"
                     >
                         {pekanList.map(p => (
@@ -346,7 +261,7 @@ function Dashboard({ user }: { user: any }) {
             <input 
               type="date"
               value={baseStartDate}
-              onChange={(e) => handleSetStartDate(e.target.value)}
+              onChange={(e) => setBaseStartDate(e.target.value)}
               className="bg-transparent border-none text-white text-sm font-medium focus:outline-none focus:ring-0 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert cursor-pointer"
             />
             <span className="text-white/40 mx-1">|</span>
