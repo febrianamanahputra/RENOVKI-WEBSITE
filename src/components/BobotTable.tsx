@@ -4,14 +4,15 @@ import { ArrowLeft, Plus, Trash2, Undo } from 'lucide-react';
 interface BobotTableProps {
   onBack: () => void;
   pekan: string;
+  locationId: string;
   key?: string;
 }
 
-export default function BobotTable({ onBack, pekan }: BobotTableProps) {
+export default function BobotTable({ onBack, pekan, locationId }: BobotTableProps) {
   type RowItem = { id: string; type: 'subtitle' | 'data' };
 
   const [rows, setRows] = useState<RowItem[]>(() => {
-    const saved = localStorage.getItem('bobot_data_global');
+    const saved = localStorage.getItem(`bobot_data_global_${locationId}`);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -46,8 +47,8 @@ export default function BobotTable({ onBack, pekan }: BobotTableProps) {
     const infoboxes = tbody.querySelectorAll('tr:not([data-id]) input');
     const infoboxValues = Array.from(infoboxes).map(inp => (inp as HTMLInputElement).value);
 
-    localStorage.setItem('bobot_data_global', JSON.stringify({ rows: currentRows, values, infoboxValues }));
-  }, []); // no longer depends on pekan
+    localStorage.setItem(`bobot_data_global_${locationId}`, JSON.stringify({ rows: currentRows, values, infoboxValues }));
+  }, [locationId]); // depends on location
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -60,7 +61,7 @@ export default function BobotTable({ onBack, pekan }: BobotTableProps) {
   }, [rows, saveState]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('bobot_data_global');
+    const saved = localStorage.getItem(`bobot_data_global_${locationId}`);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -220,7 +221,7 @@ export default function BobotTable({ onBack, pekan }: BobotTableProps) {
       const prevPekan = parseInt(pekan, 10) - 1;
       let prevValue = '0%';
       if (prevPekan >= 1) {
-         prevValue = localStorage.getItem(`bobot_sd_hari_ini_${prevPekan}`) || '0%';
+         prevValue = localStorage.getItem(`bobot_sd_hari_ini_${locationId}_${prevPekan}`) || '0%';
       }
       pekanLaluInput.value = prevValue;
 
@@ -232,9 +233,9 @@ export default function BobotTable({ onBack, pekan }: BobotTableProps) {
       pekanIniOutput.value = pekanIniStr;
 
       // Save to localStorage for cross-page sync
-      localStorage.setItem(`bobot_pekan_ini_${pekan}`, pekanIniStr);
+      localStorage.setItem(`bobot_pekan_ini_${locationId}_${pekan}`, pekanIniStr);
       if (sdHariIniOutput) {
-        localStorage.setItem(`bobot_sd_hari_ini_${pekan}`, sdHariIniOutput.value);
+        localStorage.setItem(`bobot_sd_hari_ini_${locationId}_${pekan}`, sdHariIniOutput.value);
       }
     }
   }, [pekan]);
@@ -302,16 +303,14 @@ export default function BobotTable({ onBack, pekan }: BobotTableProps) {
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>, colIndex: number) => {
     const pastedData = e.clipboardData.getData('Text');
     
-    // Hanya memisahkan berdasarkan baris baru (Enter/Newline) dari Excel/Word
-    if (pastedData.includes('\n')) {
+    if (pastedData.includes('\n') || pastedData.includes('\t')) {
       e.preventDefault();
       
-      let lines = pastedData.split(/\r\n|\n/).map(l => l.trim());
-      // Excel/Sheets biasanya menyelipkan satu baris kosong tambahan (newline) di paling bawah hasil copy. Kita buang bagian akhir itu agar tidak membuat baris hantu
-      if (lines.length > 0 && lines[lines.length - 1] === '') {
-        lines.pop();
+      let rowsList = pastedData.split(/\r\n|\n/).map(l => l.split('\t'));
+      if (rowsList.length > 0 && rowsList[rowsList.length - 1].length === 1 && rowsList[rowsList.length - 1][0] === '') {
+        rowsList.pop();
       }
-      if (lines.length === 0) return;
+      if (rowsList.length === 0) return;
 
       const currentInput = e.currentTarget;
       const currentTr = currentInput.closest('tr');
@@ -324,22 +323,35 @@ export default function BobotTable({ onBack, pekan }: BobotTableProps) {
       let j = 0;
       let domIndex = startDOMIndex;
       
-      while (domIndex < allTrs.length && j < lines.length) {
+      while (domIndex < allTrs.length && j < rowsList.length) {
         const tr = allTrs[domIndex];
         const tds = tr.querySelectorAll('td');
         if (tds.length === 9) { 
-           const targetInput = tds[colIndex]?.querySelector('input');
-           if (targetInput) {
-             targetInput.value = lines[j];
-             j++;
-             recalculateRow(tr as HTMLTableRowElement);
-           }
+           const cellValues = rowsList[j];
+           cellValues.forEach((cellText, idx) => {
+               const targetCol = colIndex + idx;
+               const targetInput = tds[targetCol]?.querySelector('input:not([readonly])') as HTMLInputElement | null;
+               if (targetInput) {
+                   targetInput.value = cellText.trim();
+                   if (targetCol === 1) { // Uraian
+                       const val = targetInput.value;
+                       if (/^([a-zA-Z][.)]|-|\*)\s/.test(val)) {
+                           targetInput.style.paddingLeft = '24px';
+                       } else {
+                           targetInput.style.paddingLeft = '0px';
+                       }
+                   }
+               }
+           });
+           
+           j++;
+           recalculateRow(tr as HTMLTableRowElement);
         }
         domIndex++;
       }
       
-      if (j < lines.length) {
-        const missingLines = lines.slice(j);
+      if (j < rowsList.length) {
+        const missingLines = rowsList.slice(j);
         setRows(prev => {
           const newRows = Array.from({ length: missingLines.length }).map((_, idx) => ({ 
              id: `data-pasted-${Date.now()}-${idx}`, 
@@ -356,17 +368,32 @@ export default function BobotTable({ onBack, pekan }: BobotTableProps) {
           while (newDomIndex < updatedTrs.length && remJ < missingLines.length) {
             const tr = updatedTrs[newDomIndex];
             const tds = tr.querySelectorAll('td');
-            if (tds.length === 9) {
-              const targetInput = tds[colIndex]?.querySelector('input');
-              if (targetInput) {
-                targetInput.value = missingLines[remJ];
+            if (tds.length === 9 && tr.getAttribute('data-type') === 'data') {
+                const cellValues = missingLines[remJ];
+                cellValues.forEach((cellText, idx) => {
+                    const targetCol = colIndex + idx;
+                    const targetInput = tds[targetCol]?.querySelector('input:not([readonly])') as HTMLInputElement | null;
+                    if (targetInput) {
+                        targetInput.value = cellText.trim();
+                        if (targetCol === 1) { // Uraian
+                            const val = targetInput.value;
+                            if (/^([a-zA-Z][.)]|-|\*)\s/.test(val)) {
+                                targetInput.style.paddingLeft = '24px';
+                            } else {
+                                targetInput.style.paddingLeft = '0px';
+                            }
+                        }
+                    }
+                });
                 remJ++;
                 recalculateRow(tr as HTMLTableRowElement);
-              }
             }
             newDomIndex++;
           }
+          calculateSubtotals();
         }, 100);
+      } else {
+          calculateSubtotals();
       }
     }
   };

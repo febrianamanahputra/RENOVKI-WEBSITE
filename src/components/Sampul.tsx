@@ -4,12 +4,14 @@ import { ArrowLeft, Camera, Upload, Search, X } from 'lucide-react';
 interface SampulProps {
   pekan: string;
   startDate?: string;
+  locationId: string;
   onBack: () => void;
+  key?: string;
 }
 
-export default function Sampul({ pekan, startDate, onBack }: SampulProps) {
+export default function Sampul({ pekan, startDate, locationId, onBack }: SampulProps) {
   const [data, setData] = useState(() => {
-    const saved = localStorage.getItem('sampul_data_global');
+    const saved = localStorage.getItem(`sampul_data_global_${locationId}`);
     if (saved) return JSON.parse(saved);
     return {
       klien: 'Ibu Tita',
@@ -58,17 +60,17 @@ export default function Sampul({ pekan, startDate, onBack }: SampulProps) {
   const [searchUraian, setSearchUraian] = useState('');
 
   useEffect(() => {
-    localStorage.setItem('sampul_data_global', JSON.stringify(data));
-  }, [data]);
+    localStorage.setItem(`sampul_data_global_${locationId}`, JSON.stringify(data));
+  }, [data, locationId]);
 
   useEffect(() => {
     const pNum = parseInt(pekan) || 1;
     const prevPekan = pNum > 1 ? pNum - 1 : 1;
-    const pLalu = localStorage.getItem(`bobot_sd_hari_ini_${prevPekan}`) || '0,00%';
-    const pIni = localStorage.getItem(`bobot_pekan_ini_${pNum}`) || '0,00%';
+    const pLalu = localStorage.getItem(`bobot_sd_hari_ini_${locationId}_${prevPekan}`) || '0,00%';
+    const pIni = localStorage.getItem(`bobot_pekan_ini_${locationId}_${pNum}`) || '0,00%';
     
     // dari TS global
-    const tsGlobalStr = localStorage.getItem('ts_data_global');
+    const tsGlobalStr = localStorage.getItem(`ts_data_global_${locationId}`);
     let kRencana = '0,00%';
     let kRealisasi = pIni; // fallback to pIni if not present
     let deviasi = '0,00%';
@@ -101,7 +103,7 @@ export default function Sampul({ pekan, startDate, onBack }: SampulProps) {
     });
 
     // Ambil daftar Uraian Pekerjaan (Kolom B dari Bobot)
-    const bobotGlobalStr = localStorage.getItem('bobot_data_global');
+    const bobotGlobalStr = localStorage.getItem(`bobot_data_global_${locationId}`);
     if (bobotGlobalStr) {
       try {
         const bobotGlobal = JSON.parse(bobotGlobalStr);

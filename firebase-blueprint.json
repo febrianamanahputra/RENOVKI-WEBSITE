@@ -1,0 +1,91 @@
+{
+  "entities": {
+    "Location": {
+      "title": "Location",
+      "description": "Represents a shared workspace/project location.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Project location name" },
+        "pekanAktif": { "type": "string" },
+        "startDate": { "type": "string" },
+        "pekanList": { "type": "array", "description": "List of weeks" },
+        "workspaceId": { "type": "string", "description": "Global workspace ID to enforce query constraints" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "number", "description": "Timestamp" },
+        "updatedAt": { "type": "number", "description": "Timestamp" }
+      },
+      "required": ["name", "workspaceId", "createdAt", "updatedAt"]
+    },
+    "Sampul": {
+      "title": "Sampul",
+      "description": "Cover page singleton state for a location.",
+      "type": "object",
+      "properties": {
+        "klien": { "type": "string" },
+        "judul1": { "type": "string" },
+        "judul2": { "type": "string" },
+        "judul3": { "type": "string" },
+        "namaProyek": { "type": "string" },
+        "pic": { "type": "string" },
+        "rab": { "type": "string" },
+        "waktu": { "type": "string" },
+        "pekerjaanLalu": { "type": "array" },
+        "pekerjaanDepan": { "type": "array" },
+        "imageUrl": { "type": "string" },
+        "locationId": { "type": "string", "description": "For query constraint" },
+        "updatedBy": { "type": "string" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["locationId", "updatedAt"]
+    },
+    "Bobot": {
+      "title": "Bobot",
+      "description": "Bobot singleton state for a location",
+      "type": "object",
+      "properties": {
+        "rows": { "type": "array" },
+        "values": { "type": "object" },
+        "infoboxValues": { "type": "array" },
+        "bobotPekanIni": { "type": "object" },
+        "bobotSdHariIni": { "type": "object" },
+        "locationId": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["locationId", "updatedAt"]
+    },
+    "TimeSchedule": {
+      "title": "TimeSchedule",
+      "description": "Time Schedule singleton state for a location",
+      "type": "object",
+      "properties": {
+        "rows": { "type": "array" },
+        "values": { "type": "object" },
+        "footerValues": { "type": "object" },
+        "colWidths": { "type": "object" },
+        "locationId": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["locationId", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/locations/{locationId}": {
+      "schema": { "$ref": "#/entities/Location" },
+      "description": "Projects / Locations"
+    },
+    "/locations/{locationId}/sampul/{sampulId}": {
+      "schema": { "$ref": "#/entities/Sampul" },
+      "description": "Singleton cover doc (id = 'data')"
+    },
+    "/locations/{locationId}/bobot/{bobotId}": {
+      "schema": { "$ref": "#/entities/Bobot" },
+      "description": "Singleton bobot doc (id = 'data')"
+    },
+    "/locations/{locationId}/timeschedule/{tsId}": {
+      "schema": { "$ref": "#/entities/TimeSchedule" },
+      "description": "Singleton timeschedule doc (id = 'data')"
+    }
+  }
+}

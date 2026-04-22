@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, Trash2, Undo } from 'lucide-react';
 interface TimeScheduleProps {
   onBack: () => void;
   pekan: string;
+  locationId: string;
   key?: string;
 }
 
@@ -17,9 +18,9 @@ interface ScheduleRow {
   type: RowType;
 }
 
-export default function TimeSchedule({ onBack, pekan }: TimeScheduleProps) {
+export default function TimeSchedule({ onBack, pekan, locationId }: TimeScheduleProps) {
   const [rows, setRows] = useState<ScheduleRow[]>(() => {
-    const saved = localStorage.getItem('ts_data_global');
+    const saved = localStorage.getItem(`ts_data_global_${locationId}`);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -43,7 +44,7 @@ export default function TimeSchedule({ onBack, pekan }: TimeScheduleProps) {
 
   // Column resizing state
   const [colWidths, setColWidths] = useState(() => {
-    const saved = localStorage.getItem('ts_data_global');
+    const saved = localStorage.getItem(`ts_data_global_${locationId}`);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -85,23 +86,26 @@ export default function TimeSchedule({ onBack, pekan }: TimeScheduleProps) {
        });
     }
 
-    localStorage.setItem('ts_data_global', JSON.stringify({ rows: currentRows, values, footerValues, colWidths: cols }));
-  }, []);
+    localStorage.setItem(`ts_data_global_${locationId}`, JSON.stringify({ rows: currentRows, values, footerValues, colWidths: cols }));
+  }, [locationId]);
 
   const syncAllFromBobot = useCallback(() => {
     let changed = false;
     for (let w = 1; w <= 26; w++) {
-      const pIni = localStorage.getItem(`bobot_pekan_ini_${w}`);
-      const sdIni = localStorage.getItem(`bobot_sd_hari_ini_${w}`);
+      let pIni = localStorage.getItem(`bobot_pekan_ini_${locationId}_${w}`) || '';
+      let sdIni = localStorage.getItem(`bobot_sd_hari_ini_${locationId}_${w}`) || '';
+      
+      if (pIni === '0%' || pIni === '0,00%' || pIni === '0') pIni = '';
+      if (sdIni === '0%' || sdIni === '0,00%' || sdIni === '0') sdIni = '';
       
       const realisasiInp = document.getElementById(`realisasi-in-${w}`) as HTMLInputElement;
       const kumRealisasiInp = document.getElementById(`kum-realisasi-in-${w}`) as HTMLInputElement;
       
-      if (realisasiInp && pIni && realisasiInp.value !== pIni) {
+      if (realisasiInp && realisasiInp.value !== pIni) {
         realisasiInp.value = pIni;
         changed = true;
       }
-      if (kumRealisasiInp && sdIni && kumRealisasiInp.value !== sdIni) {
+      if (kumRealisasiInp && kumRealisasiInp.value !== sdIni) {
         kumRealisasiInp.value = sdIni;
         changed = true;
       }
@@ -121,7 +125,7 @@ export default function TimeSchedule({ onBack, pekan }: TimeScheduleProps) {
   }, [rows, colWidths, saveState]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('ts_data_global');
+    const saved = localStorage.getItem(`ts_data_global_${locationId}`);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -132,10 +136,23 @@ export default function TimeSchedule({ onBack, pekan }: TimeScheduleProps) {
               if (tr) {
                 const inputs = tr.querySelectorAll('input');
                 parsed.values[id].forEach((val: string, idx: number) => {
-                  if (inputs[idx] && inputs[idx].value !== val) {
-                    inputs[idx].value = val;
-                    if(inputs[idx].classList.contains('week-data-input') && val.trim() !== '') {
-                        inputs[idx].parentElement!.style.backgroundColor = '#f8cb9c';
+                  if (inputs[idx]) {
+                    let cleanedVal = val;
+                    if (inputs[idx].classList.contains('week-data-input')) {
+                        const noSpaceVal = cleanedVal.replace(/\s/g, '');
+                        if (['0,00%', '0%', '0,00', '0.00%', '0.00', '0'].includes(noSpaceVal)) {
+                            cleanedVal = '';
+                        }
+                    }
+                    if (inputs[idx].value !== cleanedVal) {
+                        inputs[idx].value = cleanedVal;
+                    }
+                    if(inputs[idx].classList.contains('week-data-input')) {
+                        if (cleanedVal.trim() !== '') {
+                            inputs[idx].parentElement!.style.backgroundColor = '#f8cb9c';
+                        } else {
+                            inputs[idx].parentElement!.style.backgroundColor = 'transparent';
+                        }
                     }
                   }
                 });
@@ -246,8 +263,8 @@ export default function TimeSchedule({ onBack, pekan }: TimeScheduleProps) {
       const rencanaOut = document.getElementById(`rencana-out-${i}`) as HTMLInputElement;
       const kumRencanaOut = document.getElementById(`kum-rencana-out-${i}`) as HTMLInputElement;
 
-      if (rencanaOut) rencanaOut.value = rencanaVal > 0 ? `${Number(rencanaVal.toFixed(2))}%` : '0,00%';
-      if (kumRencanaOut) kumRencanaOut.value = cumulativeSum > 0 ? `${Number(cumulativeSum.toFixed(2))}%` : '0,00%';
+      if (rencanaOut) rencanaOut.value = rencanaVal > 0 ? `${Number(rencanaVal.toFixed(2))}%` : '';
+      if (kumRencanaOut) kumRencanaOut.value = cumulativeSum > 0 ? `${Number(cumulativeSum.toFixed(2))}%` : '';
       
       // Hitung deviasi
       calculateDeviasi(i);
@@ -263,11 +280,13 @@ export default function TimeSchedule({ onBack, pekan }: TimeScheduleProps) {
       const rencana = parseFloat(kumKencanaInp.value.replace(/,/g, '.').replace('%', '')) || 0;
       const realisasi = parseFloat(kumRealisasiInp.value.replace(/,/g, '.').replace('%', '')) || 0;
       
-      if (kumRealisasiInp.value.trim() === '') {
+      // We only compute deviasi if realisasi exists and is not empty or 0 to keep it clean, or always compute diff?
+      // "nilai 0,00 otomatis di hilangkan" -> apply to deviasi as well.
+      if (kumKencanaInp.value.trim() === '' && kumRealisasiInp.value.trim() === '') {
         deviasiOut.value = '';
       } else {
         const diff = realisasi - rencana;
-        deviasiOut.value = `${Number(diff.toFixed(2))}%`;
+        deviasiOut.value = diff === 0 ? '' : `${Number(diff.toFixed(2))}%`;
       }
     }
   };
@@ -280,34 +299,66 @@ export default function TimeSchedule({ onBack, pekan }: TimeScheduleProps) {
     calculateFooter();
   }, [rows, calculateFooter]);
 
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>, rowIndex: number, cellIndex: number) => {
-    e.preventDefault();
-    const text = e.clipboardData.getData('text');
-    const pastedRows = text.split('\n').map(row => row.split('\t'));
+  const handlePaste = (e: React.ClipboardEvent<HTMLTableSectionElement>) => {
+    const targetInput = e.target as HTMLInputElement;
+    if (targetInput.tagName !== 'INPUT') return;
 
-    const tbody = document.querySelector('tbody');
-    if (!tbody) return;
-    const trs = Array.from(tbody.querySelectorAll('tr'));
+    const text = e.clipboardData.getData('text');
+    if (!text) return;
     
-    // Simplification for pasting:
-    let currentRowIdx = trs.findIndex(tr => tr.getAttribute('data-id') === rows[rowIndex].id);
+    // Intercept if there's a newline or tab (grid data)
+    if (!text.includes('\n') && !text.includes('\t')) return;
+    
+    e.preventDefault();
+    const pastedRows = text.split(/\r\n|\n/).map(row => row.split('\t'));
+    // remove empty trailing row
+    if (pastedRows.length > 0 && pastedRows[pastedRows.length - 1].length === 1 && pastedRows[pastedRows.length - 1][0] === '') {
+        pastedRows.pop();
+    }
+
+    const tbody = e.currentTarget as HTMLTableSectionElement;
+    const trs = Array.from(tbody.querySelectorAll('tr[data-id]'));
+    
+    const targetTr = targetInput.closest('tr');
+    if (!targetTr) return;
+    
+    const currentRowIdx = trs.indexOf(targetTr as HTMLTableRowElement);
     if (currentRowIdx === -1) return;
 
-    pastedRows.forEach((pastedRowText, rIdx) => {
-      if (pastedRowText.length === 1 && pastedRowText[0] === '') return;
-      
-      const targetTr = trs[currentRowIdx + rIdx];
-      if (!targetTr) return;
+    const currentTrInputs = Array.from(targetTr.querySelectorAll('input:not([readonly])'));
+    const startCellIdx = currentTrInputs.indexOf(targetInput);
+    if (startCellIdx === -1) return;
 
-      const inputs = Array.from(targetTr.querySelectorAll('input:not([readonly])')) as HTMLInputElement[];
+    pastedRows.forEach((pastedRowText, rIdx) => {
+      const tr = trs[currentRowIdx + rIdx];
+      if (!tr) return;
+
+      const inputs = Array.from(tr.querySelectorAll('input:not([readonly])')) as HTMLInputElement[];
       
-      let inputOffset = cellIndex;
       pastedRowText.forEach((cellText, cIdx) => {
-        if (inputs[inputOffset + cIdx]) {
-           inputs[inputOffset + cIdx].value = cellText.trim();
+        const inp = inputs[startCellIdx + cIdx];
+        if (inp) {
+           let val = cellText.trim();
+           // Specific logic for week inputs: change background color and remove zeros
+           if (inp.classList.contains('week-data-input')) {
+             const cleanVal = val.replace(/\s/g, '');
+             if (['0,00%', '0%', '0,00', '0', '0.00%', '0.00'].includes(cleanVal)) {
+                 val = '';
+             }
+             inp.value = val;
+             if(val !== '') {
+                 inp.parentElement!.style.backgroundColor = '#f8cb9c';
+             } else {
+                 inp.parentElement!.style.backgroundColor = 'transparent';
+             }
+           } else {
+             inp.value = val;
+           }
         }
       });
     });
+
+    calculateFooter();
   };
 
   return (
@@ -386,7 +437,7 @@ export default function TimeSchedule({ onBack, pekan }: TimeScheduleProps) {
               ))}
             </tr>
           </thead>
-          <tbody>
+          <tbody onPaste={handlePaste}>
             {rows.map((row, rIndex) => {
               
               if (row.type === 'title') {
@@ -456,10 +507,15 @@ export default function TimeSchedule({ onBack, pekan }: TimeScheduleProps) {
                       <td key={week} className="border-r-[1.5px] border-b-[1.5px] border-black px-1 overflow-hidden">
                          <input 
                            type="text" 
-                           onPaste={(e) => handlePaste(e, rIndex, idx)}
-                           className="w-full bg-transparent outline-none text-center font-semibold text-[11px]" 
+                           className="w-full week-data-input bg-transparent outline-none text-center font-semibold text-[11px]" 
                            onChange={(e) => {
-                             if(e.target.value.trim() !== '') {
+                             let val = e.target.value.trim();
+                             const cleanVal = val.replace(/\s/g, '');
+                             if (['0,00%', '0%', '0,00', '0', '0.00%', '0.00'].includes(cleanVal)) {
+                                 val = '';
+                                 e.target.value = '';
+                             }
+                             if(val !== '') {
                                e.target.parentElement!.style.backgroundColor = '#f8cb9c';
                              } else {
                                e.target.parentElement!.style.backgroundColor = 'transparent';
@@ -509,10 +565,15 @@ export default function TimeSchedule({ onBack, pekan }: TimeScheduleProps) {
                            type="text" 
                            data-week={week}
                            onInput={handleInputDataRow}
-                           onPaste={(e) => handlePaste(e, rIndex, idx)}
                            className="w-full week-data-input bg-transparent outline-none text-center font-semibold text-[11px]" 
                            onChange={(e) => {
-                             if(e.target.value.trim() !== '') {
+                             let val = e.target.value.trim();
+                             const cleanVal = val.replace(/\s/g, '');
+                             if (['0,00%', '0%', '0,00', '0', '0.00%', '0.00'].includes(cleanVal)) {
+                                 val = '';
+                                 e.target.value = '';
+                             }
+                             if(val !== '') {
                                e.target.parentElement!.style.backgroundColor = '#f8cb9c';
                              } else {
                                e.target.parentElement!.style.backgroundColor = 'transparent';
