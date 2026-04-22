@@ -162,8 +162,9 @@ function Dashboard({ user }: { user: any }) {
   // Initial dummy doc push if empty
   useEffect(() => {
      if (!loadingLocations && locationsData?.length === 0) {
+        const { id, ...locData } = INITIAL_LOCATION;
         setDoc(doc(db, 'locations', 'loc-1'), {
-            ...INITIAL_LOCATION,
+            ...locData,
             createdBy: user.uid,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()
