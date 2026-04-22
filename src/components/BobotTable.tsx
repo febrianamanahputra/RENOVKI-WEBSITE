@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Plus, Trash2, Undo } from 'lucide-react';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 interface BobotTableProps {
   onBack: () => void;
@@ -12,13 +14,6 @@ export default function BobotTable({ onBack, pekan, locationId }: BobotTableProp
   type RowItem = { id: string; type: 'subtitle' | 'data' };
 
   const [rows, setRows] = useState<RowItem[]>(() => {
-    const saved = localStorage.getItem(`bobot_data_global_${locationId}`);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed.rows && parsed.rows.length) return parsed.rows;
-      } catch (e) {}
-    }
     return [
       { id: 'sub-init', type: 'subtitle' },
       ...Array.from({ length: 25 }).map((_, i) => ({ id: `data-init-${i}`, type: 'data' as const }))
@@ -30,7 +25,7 @@ export default function BobotTable({ onBack, pekan, locationId }: BobotTableProp
 
   const saveState = useCallback((currentRows: RowItem[]) => {
     const tbody = document.querySelector('tbody');
-    if (!tbody) return;
+    if (!tbody || !db) return;
     
     // Save data rows
     const trs = tbody.querySelectorAll('tr[data-id]');
@@ -47,8 +42,9 @@ export default function BobotTable({ onBack, pekan, locationId }: BobotTableProp
     const infoboxes = tbody.querySelectorAll('tr:not([data-id]) input');
     const infoboxValues = Array.from(infoboxes).map(inp => (inp as HTMLInputElement).value);
 
-    localStorage.setItem(`bobot_data_global_${locationId}`, JSON.stringify({ rows: currentRows, values, infoboxValues }));
-  }, [locationId]); // depends on location
+    // Sync to Firestore instead of localStorage
+    setDoc(doc(db, "bobot_data", `${locationId}_${pekan}`), { rows: currentRows, values, infoboxValues }, { merge: true }).catch(console.error);
+  }, [locationId, pekan]); // depends on location and pekan
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -61,40 +57,50 @@ export default function BobotTable({ onBack, pekan, locationId }: BobotTableProp
   }, [rows, saveState]);
 
   useEffect(() => {
-    const saved = localStorage.getItem(`bobot_data_global_${locationId}`);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setTimeout(() => {
-          if (parsed.values) {
-            Object.keys(parsed.values).forEach(id => {
-              const tr = document.querySelector(`tr[data-id="${id}"]`);
-              if (tr) {
-                const inputs = tr.querySelectorAll('input');
-                parsed.values[id].forEach((val: string, idx: number) => {
-                  if (inputs[idx] && inputs[idx].value !== val) {
-                    inputs[idx].value = val;
-                  }
-                });
-              }
-            });
+    if (!db) return;
+    const unsub = onSnapshot(doc(db, "bobot_data", `${locationId}_${pekan}`), (saved) => {
+      if (saved.exists()) {
+        try {
+          const parsed = saved.data();
+          if (parsed.rows && parsed.rows.length) {
+            setRows(prev => parsed.rows.length !== prev.length ? parsed.rows : prev);
           }
-          if (parsed.infoboxValues) {
-            const tbody = document.querySelector('tbody');
-            if (tbody) {
-               const infoboxes = tbody.querySelectorAll('tr:not([data-id]) input');
-               parsed.infoboxValues.forEach((val: string, idx: number) => {
-                 if (infoboxes[idx] && (infoboxes[idx] as HTMLInputElement).value !== val) {
-                    (infoboxes[idx] as HTMLInputElement).value = val;
-                 }
-               });
+          
+          setTimeout(() => {
+            if (parsed.values) {
+              Object.keys(parsed.values).forEach(id => {
+                const tr = document.querySelector(`tr[data-id="${id}"]`);
+                if (tr) {
+                  const inputs = tr.querySelectorAll('input');
+                  parsed.values[id].forEach((val: string, idx: number) => {
+                    const inp = inputs[idx] as HTMLInputElement;
+                    // Dont overwrite if this element is currently focused!
+                    if (inp && inp.value !== val && document.activeElement !== inp) {
+                      inp.value = val;
+                    }
+                  });
+                }
+              });
             }
-          }
-          calculateSubtotals();
-        }, 50);
-      } catch (e) {}
-    }
-  }, []); // Only run on mount since component is keyed by pekan
+            if (parsed.infoboxValues) {
+              const tbody = document.querySelector('tbody');
+              if (tbody) {
+                 const infoboxes = tbody.querySelectorAll('tr:not([data-id]) input');
+                 parsed.infoboxValues.forEach((val: string, idx: number) => {
+                   const inp = infoboxes[idx] as HTMLInputElement;
+                   if (inp && inp.value !== val && document.activeElement !== inp) {
+                      inp.value = val;
+                   }
+                 });
+              }
+            }
+            calculateSubtotals();
+          }, 50);
+        } catch (e) {}
+      }
+    });
+    return () => unsub();
+  }, [locationId, pekan]); // Only run on mount since component is keyed by pekan
 
   const saveHistory = useCallback((currentRows: RowItem[]) => {
     setHistory(prev => [...prev, currentRows]);
@@ -217,7 +223,10 @@ export default function BobotTable({ onBack, pekan, locationId }: BobotTableProp
     if (sdHariIniOutput) sdHariIniOutput.value = grandBobotSdSubtitles > 0 ? `${Number(grandBobotSdSubtitles.toFixed(2))}%` : '0%';
 
     if (pekanLaluInput && pekanIniOutput) {
-      // Baca Pekan Lalu dari LocalStorage pekan - 1
+      // Because calculateSubtotals depends on a synchronous read to get previous pekan values 
+      // which is now complex via async firestore, we will still fallback to local storage
+      // specifically for the summary totals just for visual subtotal display 
+      // (This avoids reading an entire other document synchronously in the middle of this loop)
       const prevPekan = parseInt(pekan, 10) - 1;
       let prevValue = '0%';
       if (prevPekan >= 1) {

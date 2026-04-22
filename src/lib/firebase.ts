@@ -1,6 +1,6 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, signInAnonymously as firebaseSignInAnonymously, signOut, onAuthStateChanged } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
@@ -17,15 +17,14 @@ const app = isConfigured && !getApps().length ? initializeApp(firebaseConfig) : 
 
 export const db = isConfigured ? getFirestore(app) : null as any;
 export const auth = isConfigured ? getAuth(app) : null as any;
-export const googleProvider = isConfigured ? new GoogleAuthProvider() : null as any;
 
-export const signInWithGoogle = async () => {
-  if (!auth || !googleProvider) throw new Error("Firebase is not configured.");
+export const signInAnonymously = async () => {
+  if (!auth) throw new Error("Firebase is not configured.");
   try {
-    const result = await signInWithPopup(auth, googleProvider);
+    const result = await firebaseSignInAnonymously(auth);
     return result.user;
   } catch (error: any) {
-    console.error("Error signing in with Google:", error);
+    console.error("Error signing in anonymously:", error);
     throw new Error(error?.message || "Error signing in");
   }
 };
