@@ -7,9 +7,10 @@ interface SampulProps {
   locationId: string;
   onBack: () => void;
   key?: string;
+  isPrintMode?: boolean;
 }
 
-export default function Sampul({ pekan, startDate, locationId, onBack }: SampulProps) {
+export default function Sampul({ pekan, startDate, locationId, onBack, isPrintMode }: SampulProps) {
   const [data, setData] = useState(() => {
     const saved = localStorage.getItem(`sampul_data_global_${locationId}`);
     if (saved) return JSON.parse(saved);
@@ -186,16 +187,18 @@ export default function Sampul({ pekan, startDate, locationId, onBack }: SampulP
   }, [startDate]);
 
   return (
-    <div className="flex flex-col p-4 sm:p-8 w-full max-w-5xl mx-auto font-sans bg-white min-h-screen">
-      <div className="flex items-center justify-between mb-6">
-        <button 
-          onClick={onBack}
-          className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors font-semibold"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          Kembali ke Dashboard
-        </button>
-      </div>
+    <div className={`flex flex-col font-sans bg-white ${isPrintMode ? 'p-0 w-[794px] min-h-[1123px]' : 'p-4 sm:p-8 w-full max-w-5xl mx-auto min-h-screen'}`}>
+      {!isPrintMode && (
+        <div className="flex items-center justify-between mb-6">
+          <button 
+            onClick={onBack}
+            className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors font-semibold"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Kembali ke Dashboard
+          </button>
+        </div>
+      )}
 
       <div className="border-[1.5px] border-black bg-white shadow-xl">
         {/* Header Block */}

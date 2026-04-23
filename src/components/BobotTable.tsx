@@ -8,9 +8,10 @@ interface BobotTableProps {
   pekan: string;
   locationId: string;
   key?: string;
+  isPrintMode?: boolean;
 }
 
-export default function BobotTable({ onBack, pekan, locationId }: BobotTableProps) {
+export default function BobotTable({ onBack, pekan, locationId, isPrintMode }: BobotTableProps) {
   type RowItem = { id: string; type: 'subtitle' | 'data' };
 
   const [rows, setRows] = useState<RowItem[]>(() => {

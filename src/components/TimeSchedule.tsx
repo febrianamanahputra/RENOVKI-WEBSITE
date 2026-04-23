@@ -6,6 +6,7 @@ interface TimeScheduleProps {
   pekan: string;
   locationId: string;
   key?: string;
+  isPrintMode?: boolean;
 }
 
 type RowType = 'title' | 'subtitle' | 'data';
@@ -18,7 +19,7 @@ interface ScheduleRow {
   type: RowType;
 }
 
-export default function TimeSchedule({ onBack, pekan, locationId }: TimeScheduleProps) {
+export default function TimeSchedule({ onBack, pekan, locationId, isPrintMode }: TimeScheduleProps) {
   const [rows, setRows] = useState<ScheduleRow[]>(() => {
     const saved = localStorage.getItem(`ts_data_global_${locationId}`);
     if (saved) {
@@ -362,27 +363,29 @@ export default function TimeSchedule({ onBack, pekan, locationId }: TimeSchedule
   };
 
   return (
-    <div className="min-h-screen bg-[#f0f2f5] p-2 sm:p-4 font-['Helvetica_Neue',Arial,sans-serif]">
+    <div className={`font-['Helvetica_Neue',Arial,sans-serif] ${isPrintMode ? 'min-h-[794px] bg-white p-0' : 'min-h-screen bg-[#f0f2f5] p-2 sm:p-4'}`}>
       {/* Header Area */}
-      <div className="max-w-[100vw] mx-auto bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4 flex items-center justify-between sticky top-0 z-20">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={onBack}
-            className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h1 className="text-xl font-bold text-slate-800">Time Schedule</h1>
-            <p className="text-sm text-slate-500">Jadwal Pelaksanaan Pekerjaan</p>
+      {!isPrintMode && (
+        <div className="max-w-[100vw] mx-auto bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4 flex items-center justify-between sticky top-0 z-20">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={onBack}
+              className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div>
+              <h1 className="text-xl font-bold text-slate-800">Time Schedule</h1>
+              <p className="text-sm text-slate-500">Jadwal Pelaksanaan Pekerjaan</p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main Table Container */}
       <div 
-        className="w-full bg-white border-2 border-black overflow-auto shadow-xl custom-scrollbar" 
-        style={{ height: 'calc(100vh - 180px)' }}
+        className={`w-full bg-white border-2 border-black overflow-auto ${isPrintMode ? '' : 'shadow-xl custom-scrollbar'}`} 
+        style={isPrintMode ? {} : { height: 'calc(100vh - 180px)' }}
       >
         <table className="w-max min-w-full border-collapse text-[#000000] sticky-header-table select-none" style={{ tableLayout: 'fixed' }} onInput={() => saveState(rows, colWidths)}>
           <colgroup>

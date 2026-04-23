@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import BobotTable from './components/BobotTable';
 import TimeSchedule from './components/TimeSchedule';
 import ReportHeader from './components/ReportHeader';
 import Sampul from './components/Sampul';
+import LaporanPekanan from './components/LaporanPekanan';
+import DokumentasiPekanan from './components/DokumentasiPekanan';
 import { signInAnonymously, logOut, onAuthStateChanged, db } from './lib/firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { 
@@ -69,7 +71,7 @@ const menus = [
 
 export default function App() {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const [activeView, setActiveView] = useState<'dashboard' | 'bobot' | 'timeschedule' | 'sampul'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'bobot' | 'timeschedule' | 'sampul' | 'laporanPekanan' | 'dokumentasi'>('dashboard');
   
   const [user, setUser] = useState<any>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
@@ -102,16 +104,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      if (!!import.meta.env.VITE_FIREBASE_API_KEY) {
-         await logOut();
-      }
-      // Will auto-reconnect via the listener above
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  // Watermark SVG Grid GIF equivalent
 
   const [locations, setLocations] = useState<{id: string, name: string}[]>([{ id: '1', name: 'Proyek Utama' }]);
   const [activeLocationId, setActiveLocationId] = useState('1');
@@ -155,6 +148,64 @@ export default function App() {
       } else {
          localStorage.setItem('renovki_app_global', JSON.stringify({ locations: newLocations, activeLocationId: newLoc.id }));
       }
+    }
+  };
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Hidden print container ref
+  const printContainerRef = useRef<HTMLDivElement>(null);
+
+  const generatePDF = async () => {
+    setIsExporting(true);
+    try {
+      const { default: jsPDF } = await import('jspdf');
+      const { default: html2canvas } = await import('html2canvas');
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      const captureAndAdd = async (elementId: string, orientation: 'p' | 'l', isFirst: boolean) => {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        
+        const canvas = await html2canvas(el, { scale: 2, useCORS: true, logging: false });
+        const imgData = canvas.toDataURL('image/png');
+
+        if (!isFirst) {
+          pdf.addPage('a4', orientation);
+        }
+
+        const pdfW = orientation === 'l' ? 297 : 210;
+        const pdfH = orientation === 'l' ? 210 : 297;
+        const ratio = canvas.width / canvas.height;
+
+        let renderW = pdfW;
+        let renderH = pdfW / ratio;
+
+        if (renderH > pdfH) {
+           renderH = pdfH;
+           renderW = renderH * ratio;
+        }
+
+        const xOffsets = (pdfW - renderW) / 2;
+        pdf.addImage(imgData, 'PNG', xOffsets, 0, renderW, renderH);
+      };
+
+      // Ensure hidden container gets rendered before capturing
+      await new Promise(r => setTimeout(r, 1500));
+
+      await captureAndAdd('print-sampul', 'p', true);
+      await captureAndAdd('print-bobot', 'p', false);
+      await captureAndAdd('print-laporan', 'p', false);
+      await captureAndAdd('print-dokumentasi', 'p', false);
+      await captureAndAdd('print-timeschedule', 'l', false);
+
+      pdf.save(`Laporan_Proyek_${pekan}.pdf`);
+    } catch (e) {
+      console.error(e);
+      alert('Gagal mengekspor PDF.');
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -310,13 +361,33 @@ export default function App() {
     );
   }
 
+  if (activeView === 'laporanPekanan') {
+    return (
+      <div className="flex flex-col min-h-screen bg-[#f0f2f5]">
+        <ReportHeader pekan={pekan} setPekan={handleChangePekan} startDate={computedStartDate} setStartDate={handleSetStartDate} />
+        <LaporanPekanan key={`laporan-${activeLocationId}`} pekan={pekan} startDate={computedStartDate} locationId={activeLocationId} onBack={() => setActiveView('dashboard')} />
+      </div>
+    );
+  }
+
+  if (activeView === 'dokumentasi') {
+    return (
+      <div className="flex flex-col min-h-screen bg-[#f0f2f5]">
+        <ReportHeader pekan={pekan} setPekan={handleChangePekan} startDate={computedStartDate} setStartDate={handleSetStartDate} />
+        <DokumentasiPekanan key={`dokumentasi-${activeLocationId}`} pekan={pekan} startDate={computedStartDate} locationId={activeLocationId} onBack={() => setActiveView('dashboard')} />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen font-['Helvetica_Neue',Arial,sans-serif] overflow-hidden flex flex-col relative w-full bg-slate-900">
-      {/* Background with watermark Glass */}
-      <div className="fixed inset-0 z-0 flex items-center justify-center opacity-[0.04] pointer-events-none overflow-hidden">
-        <h1 className="text-[12vw] font-black text-white whitespace-nowrap rotate-[-15deg] select-none tracking-tighter mix-blend-overlay">
-          DASHBOARD - RENOVKI
-        </h1>
+      {/* Animated Minimalist Watermark Background (GIF Equivalent) */}
+      <div className="fixed inset-0 z-0 flex items-center justify-center pointer-events-none overflow-hidden mix-blend-overlay opacity-20">
+         <img 
+            src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'%3E%3Cdefs%3E%3Cpattern id='grid' width='60' height='60' patternUnits='userSpaceOnUse'%3E%3Ccircle cx='30' cy='30' r='1.5' fill='rgba(255,255,255,0.9)'/%3E%3Cpath d='M30 0 L30 60 M0 30 L60 30' stroke='rgba(255,255,255,0.05)' stroke-width='1'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='200%25' fill='url(%23grid)' y='-100%25'%3E%3CanimateTransform attributeName='transform' type='translate' from='0 0' to='0 60' dur='10s' repeatCount='indefinite'/%3E%3C/rect%3E%3C/svg%3E" 
+            alt="Minimalist Animated Watermark"
+            className="w-full h-full object-cover"
+         />
       </div>
       {/* Gradient ambient */}
       <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_top_right,rgba(100,150,255,0.15),transparent_50%),radial-gradient(circle_at_bottom_left,rgba(255,100,200,0.15),transparent_50%))] mix-blend-screen pointer-events-none" />
@@ -324,84 +395,63 @@ export default function App() {
       <div className="fixed inset-0 z-0 backdrop-blur-[40px] bg-white/10 pointer-events-none border-t border-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]" />
 
       <main className="max-w-7xl mx-auto px-[20px] sm:px-[40px] py-[40px] relative z-10 w-full flex-1 flex flex-col">
-        {/* Header - User Info & Logout */}
-        <div className="flex justify-between items-center mb-8 relative z-20">
-          <div className="flex items-center gap-3">
-             <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/30 overflow-hidden flex items-center justify-center shadow-lg">
-                <User className="w-5 h-5 text-emerald-400" />
-             </div>
-             <div className="text-left hidden sm:block">
-                <p className="text-white font-bold text-sm leading-tight drop-shadow-md">Anonim User</p>
-                <div className="flex items-center gap-1.5 text-emerald-400/80 text-[11px] uppercase tracking-wider font-semibold">
-                   <span className={`w-1.5 h-1.5 rounded-full block ${!!import.meta.env.VITE_FIREBASE_API_KEY ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`}></span>
-                   {!!import.meta.env.VITE_FIREBASE_API_KEY ? 'Real-time Sync' : 'Local Mode'}
-                </div>
-             </div>
-          </div>
-          <button 
-             onClick={handleLogout}
-             className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white/90 border border-white/10 rounded-xl transition-all shadow-sm text-[13px] font-semibold tracking-wide"
-             title="Reset Sesi"
-          >
-             <RefreshCw className="w-4 h-4" />
-             <span className="hidden sm:inline">Reset Sesi</span>
-          </button>
-        </div>
-
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="mb-8 lg:mb-12"
+          className="mb-8 lg:mb-12 mt-4"
         >
-          {/* Lokasi Selection */}
-          <div className="flex items-center gap-2 mb-6 text-white/80">
-             <MapPin className="w-5 h-5" />
-             <span className="text-sm font-medium tracking-wider uppercase">Lokasi Area Kerja:</span>
-             <div className="relative ml-2 group">
-                <select 
-                   value={activeLocationId}
-                   onChange={handleLocationChange}
-                   className="appearance-none bg-white/10 backdrop-blur-md border border-white/20 text-white pl-4 pr-10 py-1.5 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-white/50 cursor-pointer shadow-sm transition-all hover:bg-white/20"
-                >
-                   {locations.map(loc => (
-                       <option key={loc.id} value={loc.id} className="text-black">{loc.name}</option>
-                   ))}
-                   <option value="__ADD__" className="text-indigo-600 font-bold">+ Tambah Lokasi Baru</option>
-                </select>
-                <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none transition-transform group-hover:translate-y-[-30%]" />
-             </div>
-          </div>
-
-          <div className="flex flex-col gap-1 mb-2">
+          {/* Main Title: Nama Lokasi */}
+          <div className="flex flex-col gap-1 mb-6">
              <div className="flex items-center gap-3">
-                 <h2 className="text-[32px] md:text-[42px] font-[800] text-white tracking-tight drop-shadow-md">
-                   Pekan Ke
+                 <h2 className="text-[32px] md:text-[42px] font-[800] text-white tracking-tight drop-shadow-md pb-1">
+                   Lokasi:
                  </h2>
                  <div className="relative inline-flex items-center shadow-lg rounded-xl overflow-hidden backdrop-blur-md border border-white/30 bg-black/20">
                     <select 
-                        value={pekan}
-                        onChange={(e) => handleChangePekan(e.target.value)}
-                        className="appearance-none bg-transparent text-white text-[28px] md:text-[36px] font-[800] pl-6 pr-12 py-1 focus:outline-none cursor-pointer text-center min-w-[100px]"
+                        value={activeLocationId}
+                        onChange={handleLocationChange}
+                        className="appearance-none bg-transparent text-white text-[28px] md:text-[36px] font-[800] pl-6 pr-12 py-1 focus:outline-none cursor-pointer min-w-[200px]"
                     >
-                        {pekanList.map(p => (
-                            <option key={p} value={p} className="text-black text-xl">{p}</option>
+                        {locations.map(loc => (
+                            <option key={loc.id} value={loc.id} className="text-black text-xl">{loc.name}</option>
                         ))}
+                        <option value="__ADD__" className="text-indigo-600 font-bold text-xl">+ Tambah Lokasi Baru</option>
                     </select>
                     <ChevronDown className="w-6 h-6 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-white/70" />
                  </div>
-                 <button 
-                    onClick={handleAddPekan}
-                    className="p-2 ml-2 bg-white/10 hover:bg-white/30 transition-colors rounded-full border border-white/20 text-white shadow-sm flex items-center justify-center group"
-                    title="Tambah Pekan"
-                 >
-                    <Plus className="w-6 h-6 transition-transform group-hover:scale-110" />
-                 </button>
              </div>
           </div>
           
-          {/* Tanggal Picker */}
-          <div className="flex items-center gap-3 mt-4 bg-black/20 backdrop-blur-md border border-white/20 rounded-xl px-4 py-2.5 max-w-fit shadow-lg inline-flex text-white">
+          {/* Subtitle & Headers Container */}
+          <div className="flex flex-wrap items-center gap-4">
+             {/* Subtitle: Pekan Ke */}
+             <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 text-white pl-4 pr-3 py-2 rounded-xl shadow-sm">
+                <CalendarDays className="w-5 h-5 opacity-80" />
+                <span className="text-sm font-medium tracking-wider uppercase opacity-90">Pekan Ke:</span>
+                <div className="relative ml-2 group">
+                   <select 
+                      value={pekan}
+                      onChange={(e) => handleChangePekan(e.target.value)}
+                      className="appearance-none bg-black/30 border border-white/10 text-white pl-4 pr-8 py-1 rounded-lg text-base font-bold focus:outline-none focus:ring-2 focus:ring-white/50 cursor-pointer shadow-sm transition-all hover:bg-black/50"
+                   >
+                      {pekanList.map(p => (
+                          <option key={p} value={p} className="text-black">{p}</option>
+                      ))}
+                   </select>
+                   <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none transition-transform group-hover:translate-y-[-30%]" />
+                </div>
+                <button 
+                   onClick={handleAddPekan}
+                   className="p-1.5 ml-1 bg-white/10 hover:bg-white/30 transition-colors rounded-md border border-white/20 text-white flex items-center justify-center group"
+                   title="Tambah Pekan"
+                >
+                   <Plus className="w-4 h-4 transition-transform group-hover:scale-110" />
+                </button>
+             </div>
+
+             {/* Tanggal Picker */}
+             <div className="flex items-center gap-3 bg-black/20 backdrop-blur-md border border-white/20 rounded-xl px-4 py-2.5 max-w-fit shadow-lg inline-flex text-white">
             <span className="text-sm font-semibold tracking-wider text-white/90">Mulai:</span>
             <input 
               type="date"
@@ -420,6 +470,17 @@ export default function App() {
                })() : '-'}
             </span>
           </div>
+          
+          {/* Download PDF Button */}
+          <button
+            onClick={generatePDF}
+            disabled={isExporting}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl shadow-lg font-bold text-sm transition-all text-white ${isExporting ? 'bg-indigo-500/50 cursor-not-allowed' : 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500 border border-white/20 hover:-translate-y-1'}`}
+          >
+            {isExporting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>}
+            {isExporting ? 'Memproses PDF...' : 'Download PDF'}
+          </button>
+         </div>
         </motion.div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[24px] relative z-10 w-full mt-4">
@@ -447,6 +508,10 @@ export default function App() {
                     setActiveView('timeschedule');
                   } else if (menu.title === 'Sampul') {
                     setActiveView('sampul');
+                  } else if (menu.title === 'Laporan Pekanan') {
+                    setActiveView('laporanPekanan');
+                  } else if (menu.title === 'Dokumentasi Pekanan') {
+                    setActiveView('dokumentasi');
                   }
                 }}
               >
@@ -491,6 +556,29 @@ export default function App() {
           })}
         </div>
       </main>
+
+      {/* Hidden Print Container */}
+      <div 
+        ref={printContainerRef}
+        id="hidden-print-container"
+        className="fixed top-[-9999px] left-[-9999px] z-[-1] pointer-events-none opacity-0 flex flex-col gap-10"
+      >
+        <div id="print-sampul" className="bg-white w-[794px] min-h-[1123px] overflow-hidden relative border border-white">
+           <Sampul key={`sampul-print-${activeLocationId}`} pekan={pekan} startDate={computedStartDate} locationId={activeLocationId} onBack={() => {}} isPrintMode={true} />
+        </div>
+        <div id="print-bobot" className="bg-white w-[794px] min-h-[1123px] overflow-hidden relative p-8">
+           <BobotTable key={`bobot-print-${activeLocationId}`} pekan={pekan} locationId={activeLocationId} onBack={() => {}} isPrintMode={true} />
+        </div>
+        <div id="print-laporan" className="bg-white w-[794px] min-h-[1123px] overflow-hidden relative">
+           <LaporanPekanan key={`laporan-print-${activeLocationId}`} pekan={pekan} startDate={computedStartDate} locationId={activeLocationId} onBack={() => {}} isPrintMode={true} />
+        </div>
+        <div id="print-dokumentasi" className="bg-white w-[794px] h-[1123px] overflow-hidden relative">
+           <DokumentasiPekanan key={`dokumentasi-print-${activeLocationId}`} pekan={pekan} startDate={computedStartDate} locationId={activeLocationId} onBack={() => {}} isPrintMode={true} />
+        </div>
+        <div id="print-timeschedule" className="bg-white w-[1123px] min-h-[794px] overflow-hidden relative p-8">
+           <TimeSchedule key={`ts-print-${activeLocationId}`} pekan={pekan} locationId={activeLocationId} onBack={() => {}} isPrintMode={true} />
+        </div>
+      </div>
     </div>
   );
 }
