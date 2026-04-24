@@ -151,40 +151,101 @@ export default function App() {
     }
   };
 
-  const [isExporting, setIsExporting] = useState(false);
+  const [isPreparingPdf, setIsPreparingPdf] = useState(false);
+  const [pdfReadyUrl, setPdfReadyUrl] = useState<string | null>(null);
 
   // Hidden print container ref
   const printContainerRef = useRef<HTMLDivElement>(null);
 
-  const generatePDF = () => {
-    setIsExporting(true);
+  const preparePDF = async () => {
+    setIsPreparingPdf(true);
+    setPdfReadyUrl(null);
+
+    try {
+      // Import sequentially
+      const { default: jsPDF } = await import('jspdf');
+      const { default: html2canvas } = await import('html2canvas-pro');
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const captureAndAddPage = async (elementId: string, orientation: 'portrait' | 'landscape', isFirst: boolean) => {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+
+        const canvas = await html2canvas(el, {
+          scale: 2, 
+          useCORS: true, 
+          logging: false,
+          windowWidth: el.scrollWidth,
+          windowHeight: el.scrollHeight
+        });
+        
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+        if (!isFirst) {
+          pdf.addPage('a4', orientation);
+        }
+
+        // A4 dimensions
+        const pdfW = orientation === 'portrait' ? 210 : 297;
+        const pdfH = orientation === 'portrait' ? 297 : 210;
+        
+        // Margin: 1cm = 10mm
+        const margin = 10;
+        const usableW = pdfW - (margin * 2);
+        const usableH = pdfH - (margin * 2);
+
+        const ratio = canvas.width / canvas.height;
+
+        let renderW = usableW;
+        let renderH = usableW / ratio;
+
+        if (renderH > usableH) {
+           renderH = usableH;
+           renderW = renderH * ratio;
+        }
+
+        const xOffset = margin + ((usableW - renderW) / 2);
+        const yOffset = margin + ((usableH - renderH) / 2);
+
+        pdf.addImage(imgData, 'JPEG', xOffset, yOffset, renderW, renderH);
+      };
+
+      // wait for render
+      await new Promise(r => setTimeout(r, 1000));
+
+      await captureAndAddPage('print-sampul', 'portrait', true);
+      await captureAndAddPage('print-timeschedule', 'landscape', false);
+      await captureAndAddPage('print-bobot', 'portrait', false);
+      await captureAndAddPage('print-laporan', 'portrait', false);
+      await captureAndAddPage('print-dokumentasi', 'portrait', false);
+
+      const blob = pdf.output('blob');
+      const url = URL.createObjectURL(blob);
+      setPdfReadyUrl(url);
+
+    } catch (e) {
+      console.error(e);
+      alert('Terjadi kesalahan saat menyiapkan PDF.');
+    } finally {
+      setIsPreparingPdf(false);
+    }
   };
 
-  useEffect(() => {
-    if (isExporting) {
-      // Delay to let React render the print views fully
-      const timer = setTimeout(() => {
-        window.print();
-      }, 500);
-
-      const afterPrint = () => {
-        setIsExporting(false);
-      };
-
-      window.addEventListener('afterprint', afterPrint);
-
-      // Timeout fallback if afterprint doesn't trigger
-      const fallbackTimer = setTimeout(() => {
-         setIsExporting(false);
-      }, 300000); 
-
-      return () => {
-        clearTimeout(timer);
-        clearTimeout(fallbackTimer);
-        window.removeEventListener('afterprint', afterPrint);
-      };
-    }
-  }, [isExporting]);
+  const handleDownloadPdf = () => {
+     if (!pdfReadyUrl) return;
+     const link = document.createElement('a');
+     link.href = pdfReadyUrl;
+     link.download = `Laporan_Proyek_Pekan_${pekan}.pdf`;
+     document.body.appendChild(link);
+     link.click();
+     document.body.removeChild(link);
+     // Optional: setPdfReadyUrl(null) to reset
+  };
 
   const handleLocationChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
@@ -448,15 +509,27 @@ export default function App() {
             </span>
           </div>
           
-          {/* Download PDF Button */}
-          <button
-            onClick={generatePDF}
-            disabled={isExporting}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl shadow-lg font-bold text-sm transition-all text-white ${isExporting ? 'bg-indigo-500/50 cursor-wait' : 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500 border border-white/20 hover:-translate-y-1'}`}
-          >
-            {isExporting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>}
-            {isExporting ? 'Mempersiapkan...' : 'Cetak Laporan (PDF)'}
-          </button>
+          {/* Download PDF Actions */}
+          <div className="flex items-center gap-3">
+             <button
+               onClick={preparePDF}
+               disabled={isPreparingPdf}
+               className={`flex items-center gap-2 px-6 py-2.5 rounded-xl shadow-lg font-bold text-sm transition-all text-white ${isPreparingPdf ? 'bg-indigo-500/50 cursor-wait' : 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500 border border-white/20 hover:-translate-y-1'}`}
+             >
+               {isPreparingPdf ? <RefreshCw className="w-4 h-4 animate-spin" /> : <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>}
+               {isPreparingPdf ? 'Mempersiapkan...' : 'Siapkan PDF'}
+             </button>
+
+             {pdfReadyUrl && (
+                <button
+                  onClick={handleDownloadPdf}
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl shadow-[0_0_15px_rgba(34,197,94,0.4)] font-bold text-sm transition-all text-white bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 border border-white/20 hover:-translate-y-1 animate-pulse hover:animate-none"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Unduh PDF
+                </button>
+             )}
+          </div>
          </div>
         </motion.div>
 
@@ -534,28 +607,36 @@ export default function App() {
         </div>
       </main>
 
-      {/* Hidden Print Container */}
+      {/* Hidden Print Container - made visible but blocked by overlay during generation */}
       <div 
         ref={printContainerRef}
         id="hidden-print-container"
-        className={isExporting ? "absolute inset-0 bg-gray-500 z-[9999] p-8 space-y-8 flex items-center flex-col custom-scrollbar print:block print:bg-white print:p-0 print:space-y-0 text-black overflow-y-auto" : "hidden"}
+        className={isPreparingPdf ? "absolute top-0 left-0 w-max min-w-full min-h-screen bg-slate-100 z-[9998] p-8 flex flex-col items-start gap-10" : "hidden"}
       >
-        <div id="print-sampul" className="print-page-portrait relative border-b sm:border-none border-gray-300">
+        <div id="print-sampul" className="w-[1000px] max-w-none bg-white shadow-sm flex-shrink-0">
            <Sampul key={`sampul-print-${activeLocationId}`} pekan={pekan} startDate={computedStartDate} locationId={activeLocationId} onBack={() => {}} isPrintMode={true} />
         </div>
-        <div id="print-timeschedule" className="print-page-landscape relative border-b sm:border-none border-gray-300">
+        <div id="print-timeschedule" className="w-max max-w-none bg-white shadow-sm flex-shrink-0 inline-block overflow-visible">
            <TimeSchedule key={`ts-print-${activeLocationId}`} pekan={pekan} locationId={activeLocationId} onBack={() => {}} isPrintMode={true} />
         </div>
-        <div id="print-bobot" className="print-page-portrait relative border-b sm:border-none border-gray-300">
+        <div id="print-bobot" className="w-max max-w-none bg-white shadow-sm flex-shrink-0 inline-block overflow-visible">
            <BobotTable key={`bobot-print-${activeLocationId}`} pekan={pekan} locationId={activeLocationId} onBack={() => {}} isPrintMode={true} />
         </div>
-        <div id="print-laporan" className="print-page-portrait relative border-b sm:border-none border-gray-300">
+        <div id="print-laporan" className="w-max max-w-none bg-white shadow-sm flex-shrink-0 inline-block overflow-visible">
            <LaporanPekanan key={`laporan-print-${activeLocationId}`} pekan={pekan} startDate={computedStartDate} locationId={activeLocationId} onBack={() => {}} isPrintMode={true} />
         </div>
-        <div id="print-dokumentasi" className="print-page-portrait relative border-b sm:border-none border-gray-300">
+        <div id="print-dokumentasi" className="w-max max-w-none bg-white shadow-sm flex-shrink-0 inline-block overflow-visible">
            <DokumentasiPekanan key={`dokumentasi-print-${activeLocationId}`} pekan={pekan} startDate={computedStartDate} locationId={activeLocationId} onBack={() => {}} isPrintMode={true} />
         </div>
       </div>
+
+      {isPreparingPdf && (
+         <div className="fixed inset-0 z-[9999] bg-slate-900/95 backdrop-blur-md flex flex-col items-center justify-center text-white">
+            <RefreshCw className="w-12 h-12 animate-spin text-blue-500 mb-6" />
+            <h2 className="text-2xl font-bold mb-2">Memproses Dokumen PDF</h2>
+            <p className="text-slate-300">Mohon tunggu, sistem sedang merapikan dan mengatur margin 1cm untuk setiap halaman...</p>
+         </div>
+      )}
     </div>
   );
 }

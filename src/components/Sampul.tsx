@@ -361,7 +361,9 @@ export default function Sampul({ pekan, startDate, locationId, onBack, isPrintMo
                 />
               </div>
             ))}
-            <button onClick={addPekerjaanLalu} className="mt-2 text-blue-600 text-xs font-semibold self-start hover:underline">+ Tambah Pekerjaan</button>
+            {!isPrintMode && (
+              <button onClick={addPekerjaanLalu} className="mt-2 text-blue-600 text-xs font-semibold self-start hover:underline">+ Tambah Pekerjaan</button>
+            )}
           </div>
           <div className="w-[25%] bg-[#ffc000] p-4 flex flex-col items-center justify-center font-bold text-center">
             <span className="mb-1">Progres Pekan Ini:</span>
@@ -405,7 +407,9 @@ export default function Sampul({ pekan, startDate, locationId, onBack, isPrintMo
                 />
               </div>
             ))}
-            <button onClick={addPekerjaanDepan} className="mt-2 text-blue-600 text-xs font-semibold self-start hover:underline">+ Tambah Rencana</button>
+            {!isPrintMode && (
+              <button onClick={addPekerjaanDepan} className="mt-2 text-blue-600 text-xs font-semibold self-start hover:underline">+ Tambah Rencana</button>
+            )}
           </div>
           <div className="w-[25%] bg-[#ffc000] p-4 flex flex-col items-center justify-center font-bold text-center">
             <span className="mb-1">Target<br/>Pekan Depan:</span>

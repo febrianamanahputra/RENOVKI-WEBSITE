@@ -464,8 +464,8 @@ export default function BobotTable({ onBack, pekan, locationId, isPrintMode }: B
         </button>
       )}
 
-      <div className={`bg-white border-[1.5px] border-black ${isPrintMode ? 'w-full shadow-none h-auto' : 'shadow-[0_10px_20px_rgba(0,0,0,0.08)] overflow-x-auto'}`}>
-        <table className={`w-full border-collapse ${isPrintMode ? 'text-[8px]' : 'text-[11px] min-w-[1024px]'} leading-tight text-black`}>
+      <div className={`bg-white border-[1.5px] border-black ${isPrintMode ? 'w-max shadow-none h-auto overflow-visible' : 'shadow-[0_10px_20px_rgba(0,0,0,0.08)] overflow-x-auto'}`}>
+        <table className={`w-max border-collapse ${isPrintMode ? 'text-[8px]' : 'text-[11px] min-w-[1024px]'} leading-tight text-black`}>
           <thead>
             {/* Header Title */}
             <tr>
@@ -772,37 +772,39 @@ export default function BobotTable({ onBack, pekan, locationId, isPrintMode }: B
         </table>
       </div>
 
-      <div className="mt-4 flex justify-center gap-4">
-        <button 
-          onClick={handleUndo}
-          disabled={history.length === 0}
-          className={`flex items-center gap-2 px-6 py-2 bg-white text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium text-sm shadow-sm ${history.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          <Undo className="w-4 h-4" />
-          Undo
-        </button>
-        <button 
-          onClick={addSubtitleRow}
-          className="flex items-center gap-2 px-6 py-2 bg-white text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors font-medium text-sm shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Tambah Sub Judul
-        </button>
-        <button 
-          onClick={addDataRow}
-          className="flex items-center gap-2 px-6 py-2 bg-white text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors font-medium text-sm shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Tambah Baris
-        </button>
-        <button 
-          onClick={() => setIsDeleteMode(!isDeleteMode)}
-          className={`flex items-center gap-2 px-6 py-2 rounded-lg transition-colors font-medium text-sm shadow-sm border ${isDeleteMode ? 'bg-red-500 text-white border-red-600 hover:bg-red-600' : 'bg-white text-red-600 border-red-200 hover:bg-red-50'}`}
-        >
-          <Trash2 className="w-4 h-4" />
-          {isDeleteMode ? 'Matikan Mode Hapus' : 'Mode Hapus Baris'}
-        </button>
-      </div>
+      {!isPrintMode && (
+        <div className="mt-4 flex justify-center gap-4">
+          <button 
+            onClick={handleUndo}
+            disabled={history.length === 0}
+            className={`flex items-center gap-2 px-6 py-2 bg-white text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium text-sm shadow-sm ${history.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <Undo className="w-4 h-4" />
+            Undo
+          </button>
+          <button 
+            onClick={addSubtitleRow}
+            className="flex items-center gap-2 px-6 py-2 bg-white text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors font-medium text-sm shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Tambah Sub Judul
+          </button>
+          <button 
+            onClick={addDataRow}
+            className="flex items-center gap-2 px-6 py-2 bg-white text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors font-medium text-sm shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Tambah Baris
+          </button>
+          <button 
+            onClick={() => setIsDeleteMode(!isDeleteMode)}
+            className={`flex items-center gap-2 px-6 py-2 rounded-lg transition-colors font-medium text-sm shadow-sm border ${isDeleteMode ? 'bg-red-500 text-white border-red-600 hover:bg-red-600' : 'bg-white text-red-600 border-red-200 hover:bg-red-50'}`}
+          >
+            <Trash2 className="w-4 h-4" />
+            {isDeleteMode ? 'Matikan Mode Hapus' : 'Mode Hapus Baris'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

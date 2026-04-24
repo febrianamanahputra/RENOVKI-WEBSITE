@@ -364,7 +364,7 @@ export default function TimeSchedule({ onBack, pekan, locationId, isPrintMode }:
 
   const getWidth = (key: keyof typeof colWidths | string, defaultW: number) => {
     const w = colWidths[key as keyof typeof colWidths] || defaultW;
-    return isPrintMode ? Number(w) * 0.55 : w;
+    return w;
   };
 
   return (
@@ -389,7 +389,7 @@ export default function TimeSchedule({ onBack, pekan, locationId, isPrintMode }:
 
       {/* Main Table Container */}
       <div 
-        className={`bg-white border-[1.5px] border-black ${isPrintMode ? 'w-full h-auto overflow-hidden' : 'w-full overflow-auto shadow-xl custom-scrollbar'}`} 
+        className={`bg-white border-[1.5px] border-black ${isPrintMode ? 'w-max h-auto overflow-visible' : 'w-full overflow-auto shadow-xl custom-scrollbar'}`} 
         style={isPrintMode ? {} : { height: 'calc(100vh - 180px)' }}
       >
         <table className={`w-max min-w-full border-collapse text-[#000000] select-none ${isPrintMode ? 'text-[7px]' : 'sticky-header-table'}`} style={{ tableLayout: 'fixed' }} onInput={() => saveState(rows, colWidths)}>
@@ -655,45 +655,46 @@ export default function TimeSchedule({ onBack, pekan, locationId, isPrintMode }:
         </table>
       </div>
 
-       <div className="mt-4 flex flex-wrap justify-center gap-4">
-        {/* Sync Component helper deleted */}
-        <button 
-          onClick={handleUndo}
-          disabled={history.length === 0}
-          className={`flex items-center gap-2 px-6 py-2 bg-white text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium text-sm shadow-sm ${history.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          <Undo className="w-4 h-4" />
-          Undo
-        </button>
-        <button 
-          onClick={addTitleRow}
-          className="flex items-center gap-2 px-6 py-2 bg-white text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-50 transition-colors font-medium text-sm shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Tambah Judul Utama
-        </button>
-        <button 
-          onClick={addSubtitleRow}
-          className="flex items-center gap-2 px-6 py-2 bg-white text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors font-medium text-sm shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Tambah Baris Utama
-        </button>
-        <button 
-          onClick={addDataRow}
-          className="flex items-center gap-2 px-6 py-2 bg-white text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors font-medium text-sm shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Tambah Sub Baris
-        </button>
-        <button 
-          onClick={() => setIsDeleteMode(!isDeleteMode)}
-          className={`flex items-center gap-2 px-6 py-2 rounded-lg transition-colors font-medium text-sm shadow-sm border ${isDeleteMode ? 'bg-red-500 text-white border-red-600 hover:bg-red-600' : 'bg-white text-red-600 border-red-200 hover:bg-red-50'}`}
-        >
-          <Trash2 className="w-4 h-4" />
-          {isDeleteMode ? 'Matikan Mode Hapus' : 'Mode Hapus Baris'}
-        </button>
-      </div>
+       {!isPrintMode && (
+         <div className="mt-4 flex flex-wrap justify-center gap-4">
+          <button 
+            onClick={handleUndo}
+            disabled={history.length === 0}
+            className={`flex items-center gap-2 px-6 py-2 bg-white text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium text-sm shadow-sm ${history.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <Undo className="w-4 h-4" />
+            Undo
+          </button>
+          <button 
+            onClick={addTitleRow}
+            className="flex items-center gap-2 px-6 py-2 bg-white text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-50 transition-colors font-medium text-sm shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Tambah Judul Utama
+          </button>
+          <button 
+            onClick={addSubtitleRow}
+            className="flex items-center gap-2 px-6 py-2 bg-white text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors font-medium text-sm shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Tambah Baris Utama
+          </button>
+          <button 
+            onClick={addDataRow}
+            className="flex items-center gap-2 px-6 py-2 bg-white text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors font-medium text-sm shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Tambah Sub Baris
+          </button>
+          <button 
+            onClick={() => setIsDeleteMode(!isDeleteMode)}
+            className={`flex items-center gap-2 px-6 py-2 rounded-lg transition-colors font-medium text-sm shadow-sm border ${isDeleteMode ? 'bg-red-500 text-white border-red-600 hover:bg-red-600' : 'bg-white text-red-600 border-red-200 hover:bg-red-50'}`}
+          >
+            <Trash2 className="w-4 h-4" />
+            {isDeleteMode ? 'Matikan Mode Hapus' : 'Mode Hapus Baris'}
+          </button>
+        </div>
+       )}
 
       <style>{`
         .sticky-header-table thead th {
