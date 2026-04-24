@@ -130,7 +130,7 @@ export default function DokumentasiPekanan({ onBack, pekan, locationId, startDat
         </button>
       )}
 
-      <div className={`bg-white mx-auto border border-black shadow-[0_10px_20px_rgba(0,0,0,0.08)] overflow-hidden ${isPrintMode ? 'w-[794px] h-[1123px] shadow-none' : 'max-w-[794px]'}`}>
+      <div className={`bg-white mx-auto border border-black ${isPrintMode ? 'w-full h-auto shadow-none' : 'max-w-[794px] shadow-[0_10px_20px_rgba(0,0,0,0.08)] overflow-hidden'}`}>
         {/* Header Header */}
         <div className="flex border-b border-black">
            <div className="bg-[#b3d4ff] flex-1 border-r border-black p-3 font-bold text-lg text-center flex items-center justify-center">

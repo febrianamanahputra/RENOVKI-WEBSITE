@@ -453,17 +453,19 @@ export default function BobotTable({ onBack, pekan, locationId, isPrintMode }: B
   };
 
   return (
-    <div className="min-h-screen bg-[#f0f2f5] font-['Helvetica_Neue',Arial,sans-serif] p-4 md:p-8">
-      <button 
-        onClick={onBack}
-        className="mb-6 flex items-center gap-2 text-[#1a1c21] hover:bg-slate-100 transition-colors bg-white px-4 py-2 rounded-xl shadow-[0_4px_10px_rgba(0,0,0,0.05)] border border-[#e1e4e8] font-semibold text-sm"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Kembali ke Dashboard
-      </button>
+    <div className={`font-['Helvetica_Neue',Arial,sans-serif] ${isPrintMode ? 'p-0 bg-white' : 'min-h-screen bg-[#f0f2f5] p-4 md:p-8'}`}>
+      {!isPrintMode && (
+        <button 
+          onClick={onBack}
+          className="mb-6 flex items-center gap-2 text-[#1a1c21] hover:bg-slate-100 transition-colors bg-white px-4 py-2 rounded-xl shadow-[0_4px_10px_rgba(0,0,0,0.05)] border border-[#e1e4e8] font-semibold text-sm"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Kembali ke Dashboard
+        </button>
+      )}
 
-      <div className="bg-white overflow-x-auto border-[1.5px] border-black shadow-[0_10px_20px_rgba(0,0,0,0.08)]">
-        <table className="w-full border-collapse min-w-[1024px] text-[11px] leading-tight text-black">
+      <div className={`bg-white border-[1.5px] border-black ${isPrintMode ? 'w-full shadow-none h-auto' : 'shadow-[0_10px_20px_rgba(0,0,0,0.08)] overflow-x-auto'}`}>
+        <table className={`w-full border-collapse ${isPrintMode ? 'text-[8px]' : 'text-[11px] min-w-[1024px]'} leading-tight text-black`}>
           <thead>
             {/* Header Title */}
             <tr>

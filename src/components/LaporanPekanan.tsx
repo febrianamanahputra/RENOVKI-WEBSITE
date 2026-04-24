@@ -141,8 +141,8 @@ export default function LaporanPekanan({ onBack, pekan, locationId, startDate, i
         </button>
       )}
 
-      <div className={`bg-white mx-auto border border-black shadow-[0_10px_20px_rgba(0,0,0,0.08)] overflow-hidden ${isPrintMode ? 'w-[794px] min-h-[1123px] shadow-none' : 'max-w-[1200px] overflow-x-auto'}`}>
-        <table className={`w-full border-collapse text-[12px] leading-tight text-black ${!isPrintMode ? 'min-w-[1000px]' : ''}`}>
+      <div className={`bg-white mx-auto border border-black ${isPrintMode ? 'w-full h-auto shadow-none' : 'max-w-[1200px] shadow-[0_10px_20px_rgba(0,0,0,0.08)] overflow-x-auto overflow-hidden'}`}>
+        <table className={`w-full border-collapse ${isPrintMode ? 'text-[8.5px]' : 'text-[12px] min-w-[1000px]'} leading-tight text-black`}>
           <tbody>
             {/* Header / Title */}
             <tr>

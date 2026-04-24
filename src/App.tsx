@@ -156,58 +156,35 @@ export default function App() {
   // Hidden print container ref
   const printContainerRef = useRef<HTMLDivElement>(null);
 
-  const generatePDF = async () => {
+  const generatePDF = () => {
     setIsExporting(true);
-    try {
-      const { default: jsPDF } = await import('jspdf');
-      const { default: html2canvas } = await import('html2canvas');
+  };
 
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      
-      const captureAndAdd = async (elementId: string, orientation: 'p' | 'l', isFirst: boolean) => {
-        const el = document.getElementById(elementId);
-        if (!el) return;
-        
-        const canvas = await html2canvas(el, { scale: 2, useCORS: true, logging: false });
-        const imgData = canvas.toDataURL('image/png');
+  useEffect(() => {
+    if (isExporting) {
+      // Delay to let React render the print views fully
+      const timer = setTimeout(() => {
+        window.print();
+      }, 500);
 
-        if (!isFirst) {
-          pdf.addPage('a4', orientation);
-        }
-
-        const pdfW = orientation === 'l' ? 297 : 210;
-        const pdfH = orientation === 'l' ? 210 : 297;
-        const ratio = canvas.width / canvas.height;
-
-        let renderW = pdfW;
-        let renderH = pdfW / ratio;
-
-        if (renderH > pdfH) {
-           renderH = pdfH;
-           renderW = renderH * ratio;
-        }
-
-        const xOffsets = (pdfW - renderW) / 2;
-        pdf.addImage(imgData, 'PNG', xOffsets, 0, renderW, renderH);
+      const afterPrint = () => {
+        setIsExporting(false);
       };
 
-      // Ensure hidden container gets rendered before capturing
-      await new Promise(r => setTimeout(r, 1500));
+      window.addEventListener('afterprint', afterPrint);
 
-      await captureAndAdd('print-sampul', 'p', true);
-      await captureAndAdd('print-bobot', 'p', false);
-      await captureAndAdd('print-laporan', 'p', false);
-      await captureAndAdd('print-dokumentasi', 'p', false);
-      await captureAndAdd('print-timeschedule', 'l', false);
+      // Timeout fallback if afterprint doesn't trigger
+      const fallbackTimer = setTimeout(() => {
+         setIsExporting(false);
+      }, 300000); 
 
-      pdf.save(`Laporan_Proyek_${pekan}.pdf`);
-    } catch (e) {
-      console.error(e);
-      alert('Gagal mengekspor PDF.');
-    } finally {
-      setIsExporting(false);
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(fallbackTimer);
+        window.removeEventListener('afterprint', afterPrint);
+      };
     }
-  };
+  }, [isExporting]);
 
   const handleLocationChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
@@ -380,9 +357,9 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen font-['Helvetica_Neue',Arial,sans-serif] overflow-hidden flex flex-col relative w-full bg-slate-900">
+    <div className="min-h-screen font-['Helvetica_Neue',Arial,sans-serif] overflow-hidden flex flex-col relative w-full bg-slate-900 print:bg-white print:h-auto print:overflow-visible">
       {/* Animated Minimalist Watermark Background (GIF Equivalent) */}
-      <div className="fixed inset-0 z-0 flex items-center justify-center pointer-events-none overflow-hidden mix-blend-overlay opacity-20">
+      <div className="fixed inset-0 z-0 flex items-center justify-center pointer-events-none overflow-hidden mix-blend-overlay opacity-20 print:hidden">
          <img 
             src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'%3E%3Cdefs%3E%3Cpattern id='grid' width='60' height='60' patternUnits='userSpaceOnUse'%3E%3Ccircle cx='30' cy='30' r='1.5' fill='rgba(255,255,255,0.9)'/%3E%3Cpath d='M30 0 L30 60 M0 30 L60 30' stroke='rgba(255,255,255,0.05)' stroke-width='1'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='200%25' fill='url(%23grid)' y='-100%25'%3E%3CanimateTransform attributeName='transform' type='translate' from='0 0' to='0 60' dur='10s' repeatCount='indefinite'/%3E%3C/rect%3E%3C/svg%3E" 
             alt="Minimalist Animated Watermark"
@@ -390,11 +367,11 @@ export default function App() {
          />
       </div>
       {/* Gradient ambient */}
-      <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_top_right,rgba(100,150,255,0.15),transparent_50%),radial-gradient(circle_at_bottom_left,rgba(255,100,200,0.15),transparent_50%))] mix-blend-screen pointer-events-none" />
+      <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_top_right,rgba(100,150,255,0.15),transparent_50%),radial-gradient(circle_at_bottom_left,rgba(255,100,200,0.15),transparent_50%))] mix-blend-screen pointer-events-none print:hidden" />
       {/* Glass overlay */}
-      <div className="fixed inset-0 z-0 backdrop-blur-[40px] bg-white/10 pointer-events-none border-t border-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]" />
+      <div className="fixed inset-0 z-0 backdrop-blur-[40px] bg-white/10 pointer-events-none border-t border-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] print:hidden" />
 
-      <main className="max-w-7xl mx-auto px-[20px] sm:px-[40px] py-[40px] relative z-10 w-full flex-1 flex flex-col">
+      <main className="max-w-7xl mx-auto px-[20px] sm:px-[40px] py-[40px] relative z-10 w-full flex-1 flex flex-col print:hidden">
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -475,10 +452,10 @@ export default function App() {
           <button
             onClick={generatePDF}
             disabled={isExporting}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl shadow-lg font-bold text-sm transition-all text-white ${isExporting ? 'bg-indigo-500/50 cursor-not-allowed' : 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500 border border-white/20 hover:-translate-y-1'}`}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl shadow-lg font-bold text-sm transition-all text-white ${isExporting ? 'bg-indigo-500/50 cursor-wait' : 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500 border border-white/20 hover:-translate-y-1'}`}
           >
-            {isExporting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>}
-            {isExporting ? 'Memproses PDF...' : 'Download PDF'}
+            {isExporting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>}
+            {isExporting ? 'Mempersiapkan...' : 'Cetak Laporan (PDF)'}
           </button>
          </div>
         </motion.div>
@@ -561,22 +538,22 @@ export default function App() {
       <div 
         ref={printContainerRef}
         id="hidden-print-container"
-        className="fixed top-[-9999px] left-[-9999px] z-[-1] pointer-events-none opacity-0 flex flex-col gap-10"
+        className={isExporting ? "absolute inset-0 bg-gray-500 z-[9999] p-8 space-y-8 flex items-center flex-col custom-scrollbar print:block print:bg-white print:p-0 print:space-y-0 text-black overflow-y-auto" : "hidden"}
       >
-        <div id="print-sampul" className="bg-white w-[794px] min-h-[1123px] overflow-hidden relative border border-white">
+        <div id="print-sampul" className="print-page-portrait relative border-b sm:border-none border-gray-300">
            <Sampul key={`sampul-print-${activeLocationId}`} pekan={pekan} startDate={computedStartDate} locationId={activeLocationId} onBack={() => {}} isPrintMode={true} />
         </div>
-        <div id="print-bobot" className="bg-white w-[794px] min-h-[1123px] overflow-hidden relative p-8">
+        <div id="print-timeschedule" className="print-page-landscape relative border-b sm:border-none border-gray-300">
+           <TimeSchedule key={`ts-print-${activeLocationId}`} pekan={pekan} locationId={activeLocationId} onBack={() => {}} isPrintMode={true} />
+        </div>
+        <div id="print-bobot" className="print-page-portrait relative border-b sm:border-none border-gray-300">
            <BobotTable key={`bobot-print-${activeLocationId}`} pekan={pekan} locationId={activeLocationId} onBack={() => {}} isPrintMode={true} />
         </div>
-        <div id="print-laporan" className="bg-white w-[794px] min-h-[1123px] overflow-hidden relative">
+        <div id="print-laporan" className="print-page-portrait relative border-b sm:border-none border-gray-300">
            <LaporanPekanan key={`laporan-print-${activeLocationId}`} pekan={pekan} startDate={computedStartDate} locationId={activeLocationId} onBack={() => {}} isPrintMode={true} />
         </div>
-        <div id="print-dokumentasi" className="bg-white w-[794px] h-[1123px] overflow-hidden relative">
+        <div id="print-dokumentasi" className="print-page-portrait relative border-b sm:border-none border-gray-300">
            <DokumentasiPekanan key={`dokumentasi-print-${activeLocationId}`} pekan={pekan} startDate={computedStartDate} locationId={activeLocationId} onBack={() => {}} isPrintMode={true} />
-        </div>
-        <div id="print-timeschedule" className="bg-white w-[1123px] min-h-[794px] overflow-hidden relative p-8">
-           <TimeSchedule key={`ts-print-${activeLocationId}`} pekan={pekan} locationId={activeLocationId} onBack={() => {}} isPrintMode={true} />
         </div>
       </div>
     </div>

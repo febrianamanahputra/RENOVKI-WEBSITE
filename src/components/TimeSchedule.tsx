@@ -362,8 +362,13 @@ export default function TimeSchedule({ onBack, pekan, locationId, isPrintMode }:
     calculateFooter();
   };
 
+  const getWidth = (key: keyof typeof colWidths | string, defaultW: number) => {
+    const w = colWidths[key as keyof typeof colWidths] || defaultW;
+    return isPrintMode ? Number(w) * 0.55 : w;
+  };
+
   return (
-    <div className={`font-['Helvetica_Neue',Arial,sans-serif] ${isPrintMode ? 'min-h-[794px] bg-white p-0' : 'min-h-screen bg-[#f0f2f5] p-2 sm:p-4'}`}>
+    <div className={`font-['Helvetica_Neue',Arial,sans-serif] ${isPrintMode ? 'h-auto w-full bg-white p-0 mx-auto' : 'min-h-screen bg-[#f0f2f5] p-2 sm:p-4'}`}>
       {/* Header Area */}
       {!isPrintMode && (
         <div className="max-w-[100vw] mx-auto bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4 flex items-center justify-between sticky top-0 z-20">
@@ -384,19 +389,19 @@ export default function TimeSchedule({ onBack, pekan, locationId, isPrintMode }:
 
       {/* Main Table Container */}
       <div 
-        className={`w-full bg-white border-2 border-black overflow-auto ${isPrintMode ? '' : 'shadow-xl custom-scrollbar'}`} 
+        className={`bg-white border-[1.5px] border-black ${isPrintMode ? 'w-full h-auto overflow-hidden' : 'w-full overflow-auto shadow-xl custom-scrollbar'}`} 
         style={isPrintMode ? {} : { height: 'calc(100vh - 180px)' }}
       >
-        <table className="w-max min-w-full border-collapse text-[#000000] sticky-header-table select-none" style={{ tableLayout: 'fixed' }} onInput={() => saveState(rows, colWidths)}>
+        <table className={`w-max min-w-full border-collapse text-[#000000] select-none ${isPrintMode ? 'text-[7px]' : 'sticky-header-table'}`} style={{ tableLayout: 'fixed' }} onInput={() => saveState(rows, colWidths)}>
           <colgroup>
-            <col style={{ width: colWidths.no, minWidth: colWidths.no }} />
-            <col style={{ width: colWidths.uraian, minWidth: colWidths.uraian }} />
-            <col style={{ width: colWidths.bobot, minWidth: colWidths.bobot }} />
+            <col style={{ width: getWidth('no', colWidths.no), minWidth: getWidth('no', colWidths.no) }} />
+            <col style={{ width: getWidth('uraian', colWidths.uraian), minWidth: getWidth('uraian', colWidths.uraian) }} />
+            <col style={{ width: getWidth('bobot', colWidths.bobot), minWidth: getWidth('bobot', colWidths.bobot) }} />
             {weeks.map(week => (
-              <col key={`col-${week}`} style={{ width: week === 0 ? colWidths.week0 : colWidths.week, minWidth: week === 0 ? colWidths.week0 : colWidths.week }} />
+              <col key={`col-${week}`} style={{ width: week === 0 ? getWidth('week0', colWidths.week0) : getWidth('week', colWidths.week), minWidth: week === 0 ? getWidth('week0', colWidths.week0) : getWidth('week', colWidths.week) }} />
             ))}
           </colgroup>
-          <thead className="bg-white text-[12px] font-bold z-10 sticky top-0 shadow-sm">
+          <thead className={`bg-white font-bold z-10 sticky top-0 shadow-sm ${isPrintMode ? 'text-[7px]' : 'text-[12px]'}`}>
             {/* 1. Main Header Addendum... */}
             <tr>
               <th colSpan={3} className="bg-[#8faadc] border-b-[2px] border-black h-[50px]"></th>
@@ -409,15 +414,15 @@ export default function TimeSchedule({ onBack, pekan, locationId, isPrintMode }:
             <tr className="bg-[#f2f2f2]">
               <th rowSpan={2} className="relative border-r-[1.5px] border-b-[1.5px] border-l-[1.5px] border-black px-2 text-center align-middle">
                 NO
-                <div className="absolute right-[-2px] inset-y-0 w-[4px] cursor-col-resize hover:bg-blue-500 z-20 touch-none transition-colors" onMouseDown={(e) => startResize(e, 'no')} title="Geser untuk mengubah ukuran" />
+                {!isPrintMode && <div className="absolute right-[-2px] inset-y-0 w-[4px] cursor-col-resize hover:bg-blue-500 z-20 touch-none transition-colors" onMouseDown={(e) => startResize(e, 'no')} title="Geser untuk mengubah ukuran" />}
               </th>
               <th rowSpan={2} className="relative border-r-[1.5px] border-b-[1.5px] border-black px-2 text-center align-middle">
                 URAIAN PEKERJAAN
-                <div className="absolute right-[-2px] inset-y-0 w-[4px] cursor-col-resize hover:bg-blue-500 z-20 touch-none transition-colors" onMouseDown={(e) => startResize(e, 'uraian')} title="Geser untuk mengubah ukuran" />
+                {!isPrintMode && <div className="absolute right-[-2px] inset-y-0 w-[4px] cursor-col-resize hover:bg-blue-500 z-20 touch-none transition-colors" onMouseDown={(e) => startResize(e, 'uraian')} title="Geser untuk mengubah ukuran" />}
               </th>
               <th rowSpan={2} className="relative border-r-[1.5px] border-b-[1.5px] border-black px-2 text-center align-middle">
                 BOBOT
-                <div className="absolute right-[-2px] inset-y-0 w-[4px] cursor-col-resize hover:bg-blue-500 z-20 touch-none transition-colors" onMouseDown={(e) => startResize(e, 'bobot')} title="Geser untuk mengubah ukuran" />
+                {!isPrintMode && <div className="absolute right-[-2px] inset-y-0 w-[4px] cursor-col-resize hover:bg-blue-500 z-20 touch-none transition-colors" onMouseDown={(e) => startResize(e, 'bobot')} title="Geser untuk mengubah ukuran" />}
               </th>
               <th colSpan={weeks.length} className="border-b-[1.5px] border-black px-2 py-1 text-center bg-[#f2f2f2]">
                 <input type="text" defaultValue="PEKAN PEKERJAAN" className="w-full bg-transparent outline-none text-center font-bold" />
@@ -427,7 +432,7 @@ export default function TimeSchedule({ onBack, pekan, locationId, isPrintMode }:
               {weeks.map(week => (
                 <th key={`week-${week}`} className="relative border-r-[1.5px] border-b-[1.5px] border-black px-1 text-center font-normal">
                   <input type="text" defaultValue={week.toString()} className="w-full bg-transparent outline-none text-center font-bold" />
-                  <div className="absolute right-[-2px] inset-y-0 w-[4px] cursor-col-resize hover:bg-blue-500 z-20 touch-none transition-colors" onMouseDown={(e) => startResize(e, week === 0 ? 'week0' : 'week')} title={week === 0 ? "Geser untuk mengubah ukuran kolom 0" : "Geser untuk mengubah ukuran semua kolom pekan"} />
+                  {!isPrintMode && <div className="absolute right-[-2px] inset-y-0 w-[4px] cursor-col-resize hover:bg-blue-500 z-20 touch-none transition-colors" onMouseDown={(e) => startResize(e, week === 0 ? 'week0' : 'week')} title={week === 0 ? "Geser untuk mengubah ukuran kolom 0" : "Geser untuk mengubah ukuran semua kolom pekan"} />}
                 </th>
               ))}
             </tr>

@@ -187,7 +187,7 @@ export default function Sampul({ pekan, startDate, locationId, onBack, isPrintMo
   }, [startDate]);
 
   return (
-    <div className={`flex flex-col font-sans bg-white ${isPrintMode ? 'p-0 w-[794px] min-h-[1123px]' : 'p-4 sm:p-8 w-full max-w-5xl mx-auto min-h-screen'}`}>
+    <div className={`flex flex-col font-sans bg-white ${isPrintMode ? 'p-0 w-full h-auto mx-auto border-0' : 'p-4 sm:p-8 w-full max-w-5xl mx-auto min-h-screen'}`}>
       {!isPrintMode && (
         <div className="flex items-center justify-between mb-6">
           <button 
@@ -200,7 +200,7 @@ export default function Sampul({ pekan, startDate, locationId, onBack, isPrintMo
         </div>
       )}
 
-      <div className="border-[1.5px] border-black bg-white shadow-xl">
+      <div className={`border-[1.5px] border-black bg-white ${isPrintMode ? 'shadow-none mt-2' : 'shadow-xl'}`}>
         {/* Header Block */}
         <div className="flex border-b-[1.5px] border-black">
           {/* Top Left */}
